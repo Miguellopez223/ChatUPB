@@ -22,7 +22,7 @@ public class ChatUPB_V2 {
         try{
             ChatServer chatServer = new ChatServer();
             // Le pasamos la vista al servidor para que escuche los eventos
-            chatServer.setChatEventListener(chatUI);
+            chatServer.addChatEventListener(chatUI);
             chatServer.start();
         }catch(Exception e){
             e.printStackTrace();

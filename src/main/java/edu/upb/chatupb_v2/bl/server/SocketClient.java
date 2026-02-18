@@ -12,6 +12,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -22,7 +24,7 @@ public class SocketClient extends Thread {
     private final String ip;
     private final DataOutputStream dout;
     private final BufferedReader br;
-    private ChatEventListener listener;
+    private final List<ChatEventListener> listeners = new ArrayList<>();
 
     public SocketClient(Socket socket) throws IOException {
         this.socket = socket;
@@ -38,8 +40,8 @@ public class SocketClient extends Thread {
         br = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
     }
 
-    public void setChatEventListener(ChatEventListener listener) {
-        this.listener = listener;
+    public void addChatEventListener(ChatEventListener listener) {
+        this.listeners.add(listener);
     }
 
     @Override
@@ -53,16 +55,16 @@ public class SocketClient extends Thread {
                 switch (split[0]) {
                     case "001": {
                         Invitacion inv = Invitacion.parse(message);
-                        // Avisamos a la UI que llegó una invitación
-                        if (listener != null) {
+                        // Avisamos a todos los listeners que llegó una invitación
+                        for (ChatEventListener listener : listeners) {
                             listener.onInvitacionRecibida(inv, this);
                         }
                         break;
                     }
                     case "002": {
                         AceptacionInvitacion acc = AceptacionInvitacion.parse(message);
-                        // Avisamos a la UI que aceptaron nuestra invitación
-                        if (listener != null) {
+                        // Avisamos a todos los listeners que aceptaron nuestra invitación
+                        for (ChatEventListener listener : listeners) {
                             listener.onAceptacionRecibida(acc, this);
                         }
                         //TODO: Guardar el contacto en la BD y habilitar el chat

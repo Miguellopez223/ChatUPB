@@ -6,6 +6,7 @@ package edu.upb.chatupb_v2.bl.server;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -16,13 +17,14 @@ public class ChatServer extends Thread {
 
     private static final int port = 1900;
     private final ServerSocket server;
-    private ChatEventListener listener;
+    private final List<ChatEventListener> listeners = new ArrayList<>();
+
     public ChatServer() throws IOException {
         this.server = new ServerSocket(port);
     }
 
-    public void setChatEventListener(ChatEventListener listener) {
-        this.listener = listener;
+    public void addChatEventListener(ChatEventListener listener) {
+        this.listeners.add(listener);
     }
 
     @Override
@@ -30,8 +32,10 @@ public class ChatServer extends Thread {
         while (true) {
             try {
                 SocketClient socketClient = new SocketClient(this.server.accept());
-                // Le pasamos el avisador al nuevo socket antes de iniciarlo
-                socketClient.setChatEventListener(this.listener);
+                // Le pasamos todos los listeners al nuevo socket antes de iniciarlo
+                for (ChatEventListener listener : this.listeners) {
+                    socketClient.addChatEventListener(listener);
+                }
                 socketClient.start();
             } catch (Exception e) {
                 e.printStackTrace();

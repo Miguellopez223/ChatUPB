@@ -87,7 +87,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
 
             // 1. Conectamos al socket destino
             clienteActivo = new SocketClient(ip);
-            clienteActivo.setChatEventListener(this); // Escuchamos su respuesta
+            clienteActivo.addChatEventListener(this); // Escuchamos su respuesta
             clienteActivo.start();
 
             // 2. Armamos y enviamos la trama 001
