@@ -5,7 +5,10 @@
 package edu.upb.chatupb_v2.bl.server;
 
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
+import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -40,6 +43,10 @@ public class SocketClient extends Thread {
         br = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
     }
 
+    public String getIp() {
+        return ip;
+    }
+
     public void addChatEventListener(ChatEventListener listener) {
         this.listeners.add(listener);
     }
@@ -67,7 +74,30 @@ public class SocketClient extends Thread {
                         for (ChatEventListener listener : listeners) {
                             listener.onAceptacionRecibida(acc, this);
                         }
-                        //TODO: Guardar el contacto en la BD y habilitar el chat
+                        break;
+                    }
+                    case "003": {
+                        RechazoInvitacion rechazo = RechazoInvitacion.parse(message);
+                        // Avisamos a todos los listeners que rechazaron nuestra invitación
+                        for (ChatEventListener listener : listeners) {
+                            listener.onRechazoRecibido(rechazo, this);
+                        }
+                        break;
+                    }
+                    case "007": {
+                        EnvioMensaje msg = EnvioMensaje.parse(message);
+                        // Avisamos a todos los listeners que llegó un mensaje de chat
+                        for (ChatEventListener listener : listeners) {
+                            listener.onMensajeRecibido(msg, this);
+                        }
+                        break;
+                    }
+                    case "008": {
+                        ConfirmacionMensaje conf = ConfirmacionMensaje.parse(message);
+                        // Avisamos a todos los listeners que el mensaje fue confirmado
+                        for (ChatEventListener listener : listeners) {
+                            listener.onConfirmacionRecibida(conf, this);
+                        }
                         break;
                     }
                 }

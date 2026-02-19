@@ -36,6 +36,8 @@ public class ChatServer extends Thread {
                 for (ChatEventListener listener : this.listeners) {
                     socketClient.addChatEventListener(listener);
                 }
+                // Registramos el cliente en el Mediador (por IP)
+                Mediador.getInstancia().registrar(socketClient);
                 socketClient.start();
             } catch (Exception e) {
                 e.printStackTrace();

@@ -1,8 +1,12 @@
 package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
+import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.bl.server.ChatEventListener;
+import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
 
 import javax.swing.*;
@@ -22,6 +26,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
     private JTextArea areaChat;
     private JTextField txtMensaje;
     private JButton btnEnviarMensaje;
+    private Invitacion inv;
 
     public ChatUI() {
         configurarVentana();
@@ -88,6 +93,8 @@ public class ChatUI extends JFrame implements ChatEventListener {
             // 1. Conectamos al socket destino
             clienteActivo = new SocketClient(ip);
             clienteActivo.addChatEventListener(this); // Escuchamos su respuesta
+            // Registramos el cliente saliente en el Mediador (por IP)
+            Mediador.getInstancia().registrar(clienteActivo);
             clienteActivo.start();
 
             // 2. Armamos y enviamos la trama 001
@@ -112,8 +119,10 @@ public class ChatUI extends JFrame implements ChatEventListener {
             try {
                 String msg = txtMensaje.getText().trim();
                 if (!msg.isEmpty()) {
-                    // OJO: Por ahora envía texto plano. Pronto necesitaremos la trama 003.
-                    clienteActivo.send(msg);
+                    String miNombre = txtMiNombre.getText().trim();
+                    // Enviamos usando la trama 007
+                    EnvioMensaje envio = new EnvioMensaje("ID_PC_MIGUEL", miNombre, msg);
+                    clienteActivo.send(envio.generarTrama());
                     areaChat.append("Yo: " + msg + "\n");
                     txtMensaje.setText("");
                 }
@@ -160,6 +169,14 @@ public class ChatUI extends JFrame implements ChatEventListener {
                     e.printStackTrace();
                 }
             } else {
+                try {
+                    // Enviar trama 003 (Rechazo) al remitente
+                    String miNombre = txtMiNombre.getText().trim();
+                    RechazoInvitacion rechazo = new RechazoInvitacion("ID_MI_PC", miNombre);
+                    sender.send(rechazo.generarTrama());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 lblEstado.setText("Estado: Desconectado");
                 lblEstado.setForeground(Color.RED);
                 areaChat.append("- Rechazaste la invitación de " + inv.getNombre() + "\n");
@@ -176,6 +193,44 @@ public class ChatUI extends JFrame implements ChatEventListener {
             lblEstado.setForeground(new Color(0, 153, 0)); // Verde oscuro
             btnEnviarMensaje.setEnabled(true);
             areaChat.append("<- " + acc.getNombre() + " aceptó tu invitación (002). ¡Ya pueden hablar!\n");
+        });
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> {
+            // El otro usuario rechazó nuestra invitación
+            clienteActivo = null;
+            lblEstado.setText("Estado: Invitación rechazada por " + rechazo.getNombre());
+            lblEstado.setForeground(Color.RED);
+            btnEnviarInvitacion.setEnabled(true); // Permitir reintentar
+            btnEnviarMensaje.setEnabled(false);
+            areaChat.append("<- " + rechazo.getNombre() + " rechazó tu invitación (003).\n");
+        });
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> {
+            // Mostrar el mensaje recibido en el area de chat
+            areaChat.append(msg.getNombre() + ": " + msg.getContenido() + "\n");
+
+            // Enviar trama 008 (Confirmación de recepción) automáticamente
+            try {
+                String miNombre = txtMiNombre.getText().trim();
+                ConfirmacionMensaje conf = new ConfirmacionMensaje("ID_MI_PC", miNombre, msg.getIdUsuario());
+                sender.send(conf.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> {
+            // El destinatario confirmó que recibió nuestro mensaje
+            areaChat.append("  [✓ Mensaje recibido por " + conf.getNombre() + "]\n");
         });
     }
 }
