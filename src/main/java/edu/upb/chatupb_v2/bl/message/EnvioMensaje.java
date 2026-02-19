@@ -4,7 +4,7 @@ import java.util.regex.Pattern;
 
 /**
  * Trama 007 - Envio de mensaje de texto.
- * Formato: 007|idUsuario|nombre|contenido
+ * Formato: 007|idUsuario|idMensaje|contenido
  *
  * Se envia cuando un usuario manda un mensaje de chat a la persona
  * con la que ya esta conectado (invitacion aceptada).
@@ -14,17 +14,17 @@ import java.util.regex.Pattern;
 public class EnvioMensaje extends Message {
 
     private String idUsuario;
-    private String nombre;
+    private String idMensaje;
     private String contenido;
 
     public EnvioMensaje() {
         super("007");
     }
 
-    public EnvioMensaje(String idUsuario, String nombre, String contenido) {
+    public EnvioMensaje(String idUsuario, String idMensaje, String contenido) {
         super("007");
         this.idUsuario = idUsuario;
-        this.nombre = nombre;
+        this.idMensaje = idMensaje;
         this.contenido = contenido;
     }
 
@@ -38,7 +38,7 @@ public class EnvioMensaje extends Message {
 
     @Override
     public String generarTrama() {
-        return getCodigo() + "|" + idUsuario + "|" + nombre + "|" + contenido;
+        return getCodigo() + "|" + idUsuario + "|" + idMensaje + "|" + contenido;
     }
 
     public String getIdUsuario() {
@@ -49,12 +49,12 @@ public class EnvioMensaje extends Message {
         this.idUsuario = idUsuario;
     }
 
-    public String getNombre() {
-        return nombre;
+    public String getIdMensaje() {
+        return idMensaje;
     }
 
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
+    public void setIdMensaje(String idMensaje) {
+        this.idMensaje = idMensaje;
     }
 
     public String getContenido() {

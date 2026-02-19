@@ -119,9 +119,10 @@ public class ChatUI extends JFrame implements ChatEventListener {
             try {
                 String msg = txtMensaje.getText().trim();
                 if (!msg.isEmpty()) {
-                    String miNombre = txtMiNombre.getText().trim();
+                    // Generamos un id unico para el mensaje
+                    String idMensaje = String.valueOf(System.currentTimeMillis());
                     // Enviamos usando la trama 007
-                    EnvioMensaje envio = new EnvioMensaje("ID_PC_MIGUEL", miNombre, msg);
+                    EnvioMensaje envio = new EnvioMensaje("ID_MIGUEL", idMensaje, msg);
                     clienteActivo.send(envio.generarTrama());
                     areaChat.append("Yo: " + msg + "\n");
                     txtMensaje.setText("");
@@ -171,8 +172,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
             } else {
                 try {
                     // Enviar trama 003 (Rechazo) al remitente
-                    String miNombre = txtMiNombre.getText().trim();
-                    RechazoInvitacion rechazo = new RechazoInvitacion("ID_MI_PC", miNombre);
+                    RechazoInvitacion rechazo = new RechazoInvitacion();
                     sender.send(rechazo.generarTrama());
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -201,11 +201,11 @@ public class ChatUI extends JFrame implements ChatEventListener {
         SwingUtilities.invokeLater(() -> {
             // El otro usuario rechazó nuestra invitación
             clienteActivo = null;
-            lblEstado.setText("Estado: Invitación rechazada por " + rechazo.getNombre());
+            lblEstado.setText("Estado: Invitación rechazada por " + sender.getIp());
             lblEstado.setForeground(Color.RED);
             btnEnviarInvitacion.setEnabled(true); // Permitir reintentar
             btnEnviarMensaje.setEnabled(false);
-            areaChat.append("<- " + rechazo.getNombre() + " rechazó tu invitación (003).\n");
+            areaChat.append("<- " + sender.getIp() + " rechazó tu invitación (003).\n");
         });
     }
 
@@ -213,12 +213,11 @@ public class ChatUI extends JFrame implements ChatEventListener {
     public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
             // Mostrar el mensaje recibido en el area de chat
-            areaChat.append(msg.getNombre() + ": " + msg.getContenido() + "\n");
+            areaChat.append(sender.getIp() + ": " + msg.getContenido() + "\n");
 
             // Enviar trama 008 (Confirmación de recepción) automáticamente
             try {
-                String miNombre = txtMiNombre.getText().trim();
-                ConfirmacionMensaje conf = new ConfirmacionMensaje("ID_MI_PC", miNombre, msg.getIdUsuario());
+                ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
                 sender.send(conf.generarTrama());
             } catch (Exception e) {
                 e.printStackTrace();
@@ -230,7 +229,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
             // El destinatario confirmó que recibió nuestro mensaje
-            areaChat.append("  [✓ Mensaje recibido por " + conf.getNombre() + "]\n");
+            areaChat.append("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + sender.getIp() + "]\n");
         });
     }
 }
