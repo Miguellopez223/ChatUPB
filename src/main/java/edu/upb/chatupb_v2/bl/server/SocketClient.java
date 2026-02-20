@@ -6,6 +6,7 @@ package edu.upb.chatupb_v2.bl.server;
 
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.bl.message.Despedida;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
@@ -19,9 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * @author rlaredo
- */
+
 public class SocketClient extends Thread {
     private final Socket socket;
     private final String ip;
@@ -97,6 +96,15 @@ public class SocketClient extends Thread {
                         // Avisamos a todos los listeners que el mensaje fue confirmado
                         for (ChatEventListener listener : listeners) {
                             listener.onConfirmacionRecibida(conf, this);
+                        }
+                        break;
+                    }
+                    // ------------ PREGUNTA 5 EXAMEN --------------
+                    case "0018": {
+                        Despedida despedida = Despedida.parse(message);
+                        // Avisar a todos los listeners que el usuario se despidió
+                        for (ChatEventListener listener : listeners) {
+                            listener.onDespedidaRecibida(despedida, this);
                         }
                         break;
                     }

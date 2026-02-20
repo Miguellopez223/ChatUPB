@@ -8,6 +8,7 @@ import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.bl.server.ChatEventListener;
 import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
+import edu.upb.chatupb_v2.bl.message.Despedida;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -23,6 +24,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
     private JTextField txtIpDestino;
     private JTextField txtMiNombre;
     private JButton btnEnviarInvitacion;
+    private JButton btnFueraDeLinea; // Pregunta 5
     private JLabel lblEstado;
 
     private JTextArea areaChat;
@@ -43,7 +45,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
         setLayout(new BorderLayout(10, 10));
 
         // --- 1. PANEL SUPERIOR: Conexión e Invitaciones ---
-        JPanel panelConexion = new JPanel(new GridLayout(3, 2, 5, 5));
+        JPanel panelConexion = new JPanel(new GridLayout(4, 2, 5, 5));
         panelConexion.setBorder(new TitledBorder("1. Enviar Invitación (Trama 001)"));
 
         panelConexion.add(new JLabel("Mi Nombre:"));
@@ -60,6 +62,11 @@ public class ChatUI extends JFrame implements ChatEventListener {
 
         btnEnviarInvitacion = new JButton("Enviar Invitación");
         panelConexion.add(btnEnviarInvitacion);
+
+        // ---------- PARA PREGUNTA 5 ------------
+        btnFueraDeLinea = new JButton("Fuera de Línea (0018)");
+        panelConexion.add(new JLabel(""));
+        panelConexion.add(btnFueraDeLinea);
 
         // --- 2. PANEL CENTRAL: Área de Chat ---
         areaChat = new JTextArea();
@@ -95,6 +102,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
         // --- CONFIGURAR BOTONES ---
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
+        btnFueraDeLinea.addActionListener(e -> activarFueraDeLinea()); // -------- PARA PREGUNTA 5 --------------
     }
 
     // ACCIÓN: Cuando hacemos clic en "Enviar Invitación"
@@ -115,7 +123,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
             cliente.start();
 
             // 2. Delegamos el envío de la trama 001 al Mediador
-            Invitacion inv = new Invitacion("ID_MI_PC", miNombre);
+            Invitacion inv = new Invitacion("ID_MIGUEL", miNombre);
             Mediador.getInstancia().enviarMensaje(ip, inv.generarTrama());
 
             // 3. Actualizamos la interfaz
@@ -231,6 +239,49 @@ public class ChatUI extends JFrame implements ChatEventListener {
         SwingUtilities.invokeLater(() -> {
             String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
             areaChat.append("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + nombre + "]\n");
+        });
+    }
+
+    // ----- PREGUNTA 5 EXAMEN: ACCION ACTIVAR FUERA DE LINEA -----
+    private void activarFueraDeLinea() {
+        if (nombresConectados.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay contactos activos para notificar");
+            return;
+        }
+
+        int confirmar = JOptionPane.showConfirmDialog(
+                this,
+                "Deseas desconectarte? Se va a notificar a todos tus contactos activos.",
+                "Confirmar desconexion",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirmar == JOptionPane.YES_OPTION) {
+            try {
+                Despedida despedida = new Despedida("ID_MIGUEL");
+                Mediador.getInstancia().enviarATodos(despedida.generarTrama());
+                areaChat.append("Despedida (0018) enviada a todos los contactos. Estás fuera de línea.\n");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public void onDespedidaRecibida(Despedida despedida, SocketClient emisor) {
+        SwingUtilities.invokeLater(() -> {
+            String nombre = nombresConectados.getOrDefault(emisor.getIp(), emisor.getIp());
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "El usuario '" + nombre + "' (" + emisor.getIp() + ") se ha puesto fuera de línea.",
+                    "Usuario Fuera de Línea (Trama 0018)",
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            Mediador.getInstancia().eliminar(emisor.getIp());
+            areaChat.append("El usuario " + nombre + " (" + emisor.getIp() + ") se ha puesto fuera de línea (0018).\n");
+            actualizarEstado();
         });
     }
 

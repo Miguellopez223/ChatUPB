@@ -5,6 +5,7 @@ import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.bl.message.Despedida; //Para pregunta 5 examen
 
 public interface ChatEventListener {
     void onInvitacionRecibida(Invitacion inv, SocketClient sender);
@@ -12,4 +13,5 @@ public interface ChatEventListener {
     void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender);
     void onMensajeRecibido(EnvioMensaje msg, SocketClient sender);
     void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender);
+    void onDespedidaRecibida(Despedida despedida, SocketClient sender); //Para pregunta 5 examen
 }
