@@ -1,5 +1,6 @@
 package edu.upb.chatupb_v2.bl.server;
 
+import java.io.IOException;
 import java.util.HashMap;
 
 /**
@@ -9,7 +10,6 @@ import java.util.HashMap;
  *
  * La clave del HashMap es la IP del usuario y el valor es su instancia de SocketClient.
  *
- * @author rlaredo
  */
 public class Mediador {
 
@@ -77,5 +77,27 @@ public class Mediador {
      */
     public int getCantidadConectados() {
         return clientes.size();
+    }
+
+    /**
+     * Envia una trama a un cliente especifico identificado por su IP.
+     * Centraliza el envio para que la UI no acceda directamente al socket.
+     */
+    public void enviarMensaje(String ip, String trama) throws IOException {
+        SocketClient cliente = clientes.get(ip);
+        if (cliente != null) {
+            cliente.send(trama);
+        } else {
+            System.out.println("[Mediador] No se encontró cliente con IP: " + ip);
+        }
+    }
+
+    /**
+     * Envia una trama a todos los clientes conectados (broadcast).
+     */
+    public void enviarATodos(String trama) throws IOException {
+        for (SocketClient cliente : clientes.values()) {
+            cliente.send(trama);
+        }
     }
 }

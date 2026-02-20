@@ -5,9 +5,6 @@ package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.bl.server.ChatServer;
 
-/**
- * @author rlaredo
- */
 public class ChatUPB_V2 {
     public static void main(String[] args) {
 

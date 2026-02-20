@@ -12,10 +12,12 @@ import edu.upb.chatupb_v2.bl.server.SocketClient;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.util.HashMap;
 
 public class ChatUI extends JFrame implements ChatEventListener {
 
-    private SocketClient clienteActivo;
+    // Mapa de IP -> nombre para mostrar en la UI
+    private final HashMap<String, String> nombresConectados = new HashMap<>();
 
     // Componentes visuales
     private JTextField txtIpDestino;
@@ -26,7 +28,8 @@ public class ChatUI extends JFrame implements ChatEventListener {
     private JTextArea areaChat;
     private JTextField txtMensaje;
     private JButton btnEnviarMensaje;
-    private Invitacion inv;
+    private DefaultComboBoxModel<String> modeloDestinatarios;
+    private JComboBox<String> comboDestinatarios;
 
     public ChatUI() {
         configurarVentana();
@@ -36,7 +39,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
         setTitle("Chat P2P - Diseño de Patrones UPB");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(500, 500);
-        setLocationRelativeTo(null); // Centrar en pantalla
+        setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
         // --- 1. PANEL SUPERIOR: Conexión e Invitaciones ---
@@ -44,14 +47,14 @@ public class ChatUI extends JFrame implements ChatEventListener {
         panelConexion.setBorder(new TitledBorder("1. Enviar Invitación (Trama 001)"));
 
         panelConexion.add(new JLabel("Mi Nombre:"));
-        txtMiNombre = new JTextField("Estudiante"); // Puedes cambiarlo por defecto
+        txtMiNombre = new JTextField("Miguel Angel");
         panelConexion.add(txtMiNombre);
 
         panelConexion.add(new JLabel("IP Destino:"));
-        txtIpDestino = new JTextField("127.0.0.1"); // Localhost por defecto para pruebas
+        txtIpDestino = new JTextField("127.0.0.1");
         panelConexion.add(txtIpDestino);
 
-        lblEstado = new JLabel("Estado: Desconectado");
+        lblEstado = new JLabel("Estado: Sin conexiones activas");
         lblEstado.setForeground(Color.RED);
         panelConexion.add(lblEstado);
 
@@ -64,15 +67,25 @@ public class ChatUI extends JFrame implements ChatEventListener {
         JScrollPane scrollChat = new JScrollPane(areaChat);
         scrollChat.setBorder(new TitledBorder("2. Conversación"));
 
-        // --- 3. PANEL INFERIOR: Enviar Mensajes ---
+        // --- 3. PANEL INFERIOR: Selección de destinatario y envío de mensajes ---
         JPanel panelMensaje = new JPanel(new BorderLayout(5, 5));
         panelMensaje.setBorder(new TitledBorder("3. Enviar Mensaje de Texto"));
+
+        JPanel panelDestinatario = new JPanel(new BorderLayout(5, 0));
+        panelDestinatario.add(new JLabel("Para: "), BorderLayout.WEST);
+        modeloDestinatarios = new DefaultComboBoxModel<>();
+        comboDestinatarios = new JComboBox<>(modeloDestinatarios);
+        panelDestinatario.add(comboDestinatarios, BorderLayout.CENTER);
+
+        JPanel panelInput = new JPanel(new BorderLayout(5, 0));
         txtMensaje = new JTextField();
         btnEnviarMensaje = new JButton("Enviar");
-        btnEnviarMensaje.setEnabled(false); // Bloqueado hasta que acepten la invitación
+        btnEnviarMensaje.setEnabled(false);
+        panelInput.add(txtMensaje, BorderLayout.CENTER);
+        panelInput.add(btnEnviarMensaje, BorderLayout.EAST);
 
-        panelMensaje.add(txtMensaje, BorderLayout.CENTER);
-        panelMensaje.add(btnEnviarMensaje, BorderLayout.EAST);
+        panelMensaje.add(panelDestinatario, BorderLayout.NORTH);
+        panelMensaje.add(panelInput, BorderLayout.CENTER);
 
         // --- AGREGAR PANELES A LA VENTANA ---
         add(panelConexion, BorderLayout.NORTH);
@@ -90,63 +103,60 @@ public class ChatUI extends JFrame implements ChatEventListener {
             String ip = txtIpDestino.getText().trim();
             String miNombre = txtMiNombre.getText().trim();
 
-            // 1. Conectamos al socket destino
-            clienteActivo = new SocketClient(ip);
-            clienteActivo.addChatEventListener(this); // Escuchamos su respuesta
-            // Registramos el cliente saliente en el Mediador (por IP)
-            Mediador.getInstancia().registrar(clienteActivo);
-            clienteActivo.start();
+            if (Mediador.getInstancia().existe(ip)) {
+                JOptionPane.showMessageDialog(this, "Ya existe una conexión activa con " + ip);
+                return;
+            }
 
-            // 2. Armamos y enviamos la trama 001
+            // 1. Conectamos al socket destino y registramos en el Mediador
+            SocketClient cliente = new SocketClient(ip);
+            cliente.addChatEventListener(this);
+            Mediador.getInstancia().registrar(cliente);
+            cliente.start();
+
+            // 2. Delegamos el envío de la trama 001 al Mediador
             Invitacion inv = new Invitacion("ID_MI_PC", miNombre);
-            clienteActivo.send(inv.generarTrama());
+            Mediador.getInstancia().enviarMensaje(ip, inv.generarTrama());
 
             // 3. Actualizamos la interfaz
-            lblEstado.setText("Estado: Esperando respuesta...");
+            lblEstado.setText("Estado: Invitación enviada a " + ip + "...");
             lblEstado.setForeground(Color.ORANGE);
             areaChat.append("-> Invitación (001) enviada a " + ip + "\n");
-            btnEnviarInvitacion.setEnabled(false); // Evitar doble clic
 
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error al conectar a la IP: " + ex.getMessage());
-            lblEstado.setText("Estado: Error de conexión");
         }
     }
 
     // ACCIÓN: Cuando enviamos un mensaje en el chat
     private void enviarMensajeChat() {
-        if (clienteActivo != null) {
-            try {
-                String msg = txtMensaje.getText().trim();
-                if (!msg.isEmpty()) {
-                    // Generamos un id unico para el mensaje
-                    String idMensaje = String.valueOf(System.currentTimeMillis());
-                    // Enviamos usando la trama 007
-                    EnvioMensaje envio = new EnvioMensaje("ID_MIGUEL", idMensaje, msg);
-                    clienteActivo.send(envio.generarTrama());
-                    areaChat.append("Yo: " + msg + "\n");
-                    txtMensaje.setText("");
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+        String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
+        if (itemSeleccionado == null) return;
+
+        String ip = extraerIp(itemSeleccionado);
+        String msg = txtMensaje.getText().trim();
+        if (msg.isEmpty()) return;
+
+        try {
+            String idMensaje = String.valueOf(System.currentTimeMillis());
+            EnvioMensaje envio = new EnvioMensaje("ID_MIGUEL", idMensaje, msg);
+            // Delegamos el envío al Mediador en vez de usar un socket directo
+            Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+
+            String nombre = nombresConectados.getOrDefault(ip, ip);
+            areaChat.append("Yo -> " + nombre + ": " + msg + "\n");
+            txtMensaje.setText("");
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
-    // ======================================================================
-    // IMPLEMENTACIÓN DE LOS EVENTOS DE RED (Llegan desde SocketClient)
-    // ======================================================================
-
     @Override
     public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
-        // SwingUtilities obliga a que este código modifique la interfaz de forma segura
         SwingUtilities.invokeLater(() -> {
-            lblEstado.setText("Estado: Recibiendo invitación...");
-            lblEstado.setForeground(Color.BLUE);
-
             int respuesta = JOptionPane.showConfirmDialog(
                     this,
-                    "El usuario '" + inv.getNombre() + "' te ha enviado una invitación.\n¿Aceptas conectarte?",
+                    "El usuario '" + inv.getNombre() + "' (" + sender.getIp() + ") te ha enviado una invitación.\n¿Aceptas conectarte?",
                     "Invitación Recibida (Trama 001)",
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.INFORMATION_MESSAGE
@@ -154,31 +164,28 @@ public class ChatUI extends JFrame implements ChatEventListener {
 
             if (respuesta == JOptionPane.YES_OPTION) {
                 try {
-                    // 1. Armar y enviar trama 002 (Aceptación)
+                    // 1. Armar y enviar trama 002 (Aceptación) a través del Mediador
                     String miNombre = txtMiNombre.getText().trim();
                     AceptacionInvitacion acc = new AceptacionInvitacion("ID_MI_PC", miNombre);
-                    sender.send(acc.generarTrama());
+                    Mediador.getInstancia().enviarMensaje(sender.getIp(), acc.generarTrama());
 
-                    // 2. Guardar el socket y habilitar el chat
-                    clienteActivo = sender;
-                    lblEstado.setText("Estado: Conectado con " + inv.getNombre());
-                    lblEstado.setForeground(new Color(0, 153, 0)); // Verde oscuro
-                    btnEnviarMensaje.setEnabled(true);
-                    areaChat.append("<- Has aceptado la invitación de " + inv.getNombre() + "\n");
+                    // 2. Registrar la conexión en la UI (sin sobrescribir conexiones anteriores)
+                    agregarConexion(sender.getIp(), inv.getNombre());
+                    areaChat.append("<- Has aceptado la invitación de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
 
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             } else {
                 try {
-                    // Enviar trama 003 (Rechazo) al remitente
+                    // Enviar trama 003 (Rechazo) a través del Mediador
                     RechazoInvitacion rechazo = new RechazoInvitacion();
-                    sender.send(rechazo.generarTrama());
+                    Mediador.getInstancia().enviarMensaje(sender.getIp(), rechazo.generarTrama());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                lblEstado.setText("Estado: Desconectado");
-                lblEstado.setForeground(Color.RED);
+                // Eliminar la conexión rechazada del Mediador
+                Mediador.getInstancia().eliminar(sender.getIp());
                 areaChat.append("- Rechazaste la invitación de " + inv.getNombre() + "\n");
             }
         });
@@ -187,38 +194,32 @@ public class ChatUI extends JFrame implements ChatEventListener {
     @Override
     public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
-            // Guardar el socket validado y habilitar el chat
-            clienteActivo = sender;
-            lblEstado.setText("Estado: Conectado con " + acc.getNombre());
-            lblEstado.setForeground(new Color(0, 153, 0)); // Verde oscuro
-            btnEnviarMensaje.setEnabled(true);
-            areaChat.append("<- " + acc.getNombre() + " aceptó tu invitación (002). ¡Ya pueden hablar!\n");
+            // Registrar la nueva conexión en la UI (sin sobrescribir conexiones anteriores)
+            agregarConexion(sender.getIp(), acc.getNombre());
+            areaChat.append("<- " + acc.getNombre() + " (" + sender.getIp() + ") aceptó tu invitación (002). ¡Ya pueden hablar!\n");
         });
     }
 
     @Override
     public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
-            // El otro usuario rechazó nuestra invitación
-            clienteActivo = null;
-            lblEstado.setText("Estado: Invitación rechazada por " + sender.getIp());
-            lblEstado.setForeground(Color.RED);
-            btnEnviarInvitacion.setEnabled(true); // Permitir reintentar
-            btnEnviarMensaje.setEnabled(false);
+            // Eliminar la conexión rechazada del Mediador
+            Mediador.getInstancia().eliminar(sender.getIp());
             areaChat.append("<- " + sender.getIp() + " rechazó tu invitación (003).\n");
+            actualizarEstado();
         });
     }
 
     @Override
     public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
-            // Mostrar el mensaje recibido en el area de chat
-            areaChat.append(sender.getIp() + ": " + msg.getContenido() + "\n");
+            String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
+            areaChat.append(nombre + ": " + msg.getContenido() + "\n");
 
-            // Enviar trama 008 (Confirmación de recepción) automáticamente
+            // Enviar trama 008 (Confirmación de recepción) a través del Mediador
             try {
                 ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
-                sender.send(conf.generarTrama());
+                Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -228,8 +229,42 @@ public class ChatUI extends JFrame implements ChatEventListener {
     @Override
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
-            // El destinatario confirmó que recibió nuestro mensaje
-            areaChat.append("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + sender.getIp() + "]\n");
+            String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
+            areaChat.append("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + nombre + "]\n");
         });
+    }
+
+    // --- Métodos auxiliares para gestión de conexiones múltiples ---
+
+    private void agregarConexion(String ip, String nombre) {
+        nombresConectados.put(ip, nombre);
+        String item = nombre + " (" + ip + ")";
+        // Evitar duplicados en el combo
+        for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
+            if (extraerIp(modeloDestinatarios.getElementAt(i)).equals(ip)) {
+                return;
+            }
+        }
+        modeloDestinatarios.addElement(item);
+        actualizarEstado();
+    }
+
+    private String extraerIp(String item) {
+        int start = item.lastIndexOf('(');
+        int end = item.lastIndexOf(')');
+        return item.substring(start + 1, end);
+    }
+
+    private void actualizarEstado() {
+        int n = nombresConectados.size();
+        if (n == 0) {
+            lblEstado.setText("Estado: Sin conexiones activas");
+            lblEstado.setForeground(Color.RED);
+            btnEnviarMensaje.setEnabled(false);
+        } else {
+            lblEstado.setText("Estado: " + n + " conexión(es) activa(s)");
+            lblEstado.setForeground(new Color(0, 153, 0));
+            btnEnviarMensaje.setEnabled(true);
+        }
     }
 }
