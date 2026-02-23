@@ -4,6 +4,7 @@
 package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.bl.server.ChatServer;
+import edu.upb.chatupb_v2.bl.server.Mediador;
 
 public class ChatUPB_V2 {
     public static void main(String[] args) {
@@ -16,10 +17,11 @@ public class ChatUPB_V2 {
             }
         });
 
+        // Registrar la UI en el Mediador para que reciba todos los eventos
+        Mediador.getInstancia().addChatEventListener(chatUI);
+
         try{
             ChatServer chatServer = new ChatServer();
-            // Le pasamos la vista al servidor para que escuche los eventos
-            chatServer.addChatEventListener(chatUI);
             chatServer.start();
         }catch(Exception e){
             e.printStackTrace();

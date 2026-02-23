@@ -1,17 +1,28 @@
 package edu.upb.chatupb_v2.bl.server;
 
+import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.bl.message.Despedida;
+import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
+import edu.upb.chatupb_v2.bl.message.Invitacion;
+import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Mediador central de conexiones.
  * Patron Singleton: solo existe una instancia en toda la aplicacion.
- * Patron Mediador: centraliza el registro y busqueda de SocketClients por IP.
+ * Patron Mediador: centraliza el registro de SocketClients por IP,
+ * el envio de tramas y la entrega de eventos a la interfaz grafica.
  *
- * La clave del HashMap es la IP del usuario y el valor es su instancia de SocketClient.
- *
+ * El Mediador se suscribe a cada SocketClient y reenvia los eventos
+ * a los listeners de la UI, de modo que la UI nunca se suscribe
+ * directamente a un SocketClient.
  */
-public class Mediador {
+public class Mediador implements ChatEventListener {
 
     // --- Singleton ---
     private static Mediador instancia;
@@ -30,13 +41,24 @@ public class Mediador {
     // --- HashMap: IP -> SocketClient ---
     private final HashMap<String, SocketClient> clientes = new HashMap<>();
 
+    // ---- PREGUNTA 4 ------
+    // --- Listeners de la UI que reciben los eventos reenviados ---
+    private final List<ChatEventListener> listeners = new ArrayList<>();
+
+    // Registra un listener de UI para recibir eventos.
+    public void addChatEventListener(ChatEventListener listener) {
+        this.listeners.add(listener);
+    }
+
     /**
      * Registra un SocketClient asociado a su IP.
-     * Si ya existia una conexion con esa IP, la reemplaza.
+     * El Mediador se auto-suscribe al SocketClient para interceptar sus eventos.
      */
     public void registrar(SocketClient socketClient) {
         String ip = socketClient.getIp();
         clientes.put(ip, socketClient);
+        // El Mediador se suscribe al SocketClient para recibir sus eventos
+        socketClient.addChatEventListener(this);
         System.out.println("[Mediador] Cliente registrado: " + ip
                 + " | Total conectados: " + clientes.size());
     }
@@ -98,6 +120,54 @@ public class Mediador {
     public void enviarATodos(String trama) throws IOException {
         for (SocketClient cliente : clientes.values()) {
             cliente.send(trama);
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // Implementacon de ChatEventListener:
+    // El Mediador recibe eventos de cada SocketClient y los reenvia
+    // a todos los listeners de UI registrados.
+    // -----------------------------------------------------------------
+
+    @Override
+    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onInvitacionRecibida(inv, sender);
+        }
+    }
+
+    @Override
+    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onAceptacionRecibida(acc, sender);
+        }
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onRechazoRecibido(rechazo, sender);
+        }
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onMensajeRecibido(msg, sender);
+        }
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onConfirmacionRecibida(conf, sender);
+        }
+    }
+
+    @Override
+    public void onDespedidaRecibida(Despedida despedida, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onDespedidaRecibida(despedida, sender);
         }
     }
 }

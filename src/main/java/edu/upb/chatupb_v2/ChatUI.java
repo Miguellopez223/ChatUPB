@@ -117,8 +117,8 @@ public class ChatUI extends JFrame implements ChatEventListener {
             }
 
             // 1. Conectamos al socket destino y registramos en el Mediador
+            //    El Mediador se autosuscribe al SocketClient y reenvia eventos a la UI
             SocketClient cliente = new SocketClient(ip);
-            cliente.addChatEventListener(this);
             Mediador.getInstancia().registrar(cliente);
             cliente.start();
 
