@@ -4,9 +4,13 @@
 package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.bl.server.ChatServer;
+import edu.upb.chatupb_v2.repository.ContactDao;
 
 public class ChatUPB_V2 {
     public static void main(String[] args) {
+
+        // Crear tabla de contactos si no existe
+        new ContactDao().createTableIfNotExists();
 
         ChatUI chatUI = new ChatUI();
 

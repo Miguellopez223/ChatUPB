@@ -9,6 +9,9 @@ import edu.upb.chatupb_v2.bl.server.ChatEventListener;
 import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
 
+import edu.upb.chatupb_v2.repository.Contact;
+import edu.upb.chatupb_v2.repository.ContactDao;
+
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
@@ -31,6 +34,12 @@ public class ChatUI extends JFrame implements ChatEventListener {
     private DefaultComboBoxModel<String> modeloDestinatarios;
     private JComboBox<String> comboDestinatarios;
 
+    // Panel de contactos
+    private DefaultListModel<String> modeloContactos;
+    private JList<String> listaContactos;
+    private final ContactDao contactDao = new ContactDao();
+    private java.util.List<Contact> contactosEnMemoria = new java.util.ArrayList<>();
+
     public ChatUI() {
         configurarVentana();
     }
@@ -38,7 +47,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
     private void configurarVentana() {
         setTitle("Chat P2P - Diseño de Patrones UPB");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(500, 500);
+        setSize(700, 500);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
@@ -87,7 +96,22 @@ public class ChatUI extends JFrame implements ChatEventListener {
         panelMensaje.add(panelDestinatario, BorderLayout.NORTH);
         panelMensaje.add(panelInput, BorderLayout.CENTER);
 
+        // --- 4. PANEL IZQUIERDO: Lista de Contactos ---
+        JPanel panelContactos = new JPanel(new BorderLayout(5, 5));
+        panelContactos.setBorder(new TitledBorder("Contactos"));
+        panelContactos.setPreferredSize(new Dimension(180, 0));
+
+        modeloContactos = new DefaultListModel<>();
+        listaContactos = new JList<>(modeloContactos);
+        listaContactos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane scrollContactos = new JScrollPane(listaContactos);
+        panelContactos.add(scrollContactos, BorderLayout.CENTER);
+
+        JButton btnEliminarContacto = new JButton("Eliminar");
+        panelContactos.add(btnEliminarContacto, BorderLayout.SOUTH);
+
         // --- AGREGAR PANELES A LA VENTANA ---
+        add(panelContactos, BorderLayout.WEST);
         add(panelConexion, BorderLayout.NORTH);
         add(scrollChat, BorderLayout.CENTER);
         add(panelMensaje, BorderLayout.SOUTH);
@@ -95,6 +119,21 @@ public class ChatUI extends JFrame implements ChatEventListener {
         // --- CONFIGURAR BOTONES ---
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
+        btnEliminarContacto.addActionListener(e -> eliminarContacto());
+
+        // Al seleccionar un contacto, auto-llenar la IP
+        listaContactos.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int index = listaContactos.getSelectedIndex();
+                if (index >= 0 && index < contactosEnMemoria.size()) {
+                    Contact c = contactosEnMemoria.get(index);
+                    txtIpDestino.setText(c.getIp());
+                }
+            }
+        });
+
+        // Cargar contactos desde la base de datos
+        cargarContactos();
     }
 
     // ACCIÓN: Cuando hacemos clic en "Enviar Invitación"
@@ -115,7 +154,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
             cliente.start();
 
             // 2. Delegamos el envío de la trama 001 al Mediador
-            Invitacion inv = new Invitacion("ID_MI_PC", miNombre);
+            Invitacion inv = new Invitacion("ID_MIGUEL", miNombre);
             Mediador.getInstancia().enviarMensaje(ip, inv.generarTrama());
 
             // 3. Actualizamos la interfaz
@@ -166,12 +205,15 @@ public class ChatUI extends JFrame implements ChatEventListener {
                 try {
                     // 1. Armar y enviar trama 002 (Aceptación) a través del Mediador
                     String miNombre = txtMiNombre.getText().trim();
-                    AceptacionInvitacion acc = new AceptacionInvitacion("ID_MI_PC", miNombre);
+                    AceptacionInvitacion acc = new AceptacionInvitacion("ID_MIGUEL", miNombre);
                     Mediador.getInstancia().enviarMensaje(sender.getIp(), acc.generarTrama());
 
                     // 2. Registrar la conexión en la UI (sin sobrescribir conexiones anteriores)
                     agregarConexion(sender.getIp(), inv.getNombre());
                     areaChat.append("<- Has aceptado la invitación de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
+
+                    // 3. Guardar contacto en la base de datos
+                    guardarContactoSiNoExiste(inv.getIdUsuario(), inv.getNombre(), sender.getIp());
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -197,6 +239,9 @@ public class ChatUI extends JFrame implements ChatEventListener {
             // Registrar la nueva conexión en la UI (sin sobrescribir conexiones anteriores)
             agregarConexion(sender.getIp(), acc.getNombre());
             areaChat.append("<- " + acc.getNombre() + " (" + sender.getIp() + ") aceptó tu invitación (002). ¡Ya pueden hablar!\n");
+
+            // Guardar contacto en la base de datos
+            guardarContactoSiNoExiste(acc.getIdUsuario(), acc.getNombre(), sender.getIp());
         });
     }
 
@@ -265,6 +310,61 @@ public class ChatUI extends JFrame implements ChatEventListener {
             lblEstado.setText("Estado: " + n + " conexión(es) activa(s)");
             lblEstado.setForeground(new Color(0, 153, 0));
             btnEnviarMensaje.setEnabled(true);
+        }
+    }
+
+    // --- Métodos de gestión de contactos (SQLite) ---
+
+    private void cargarContactos() {
+        try {
+            contactosEnMemoria = contactDao.findAll();
+            modeloContactos.clear();
+            for (Contact c : contactosEnMemoria) {
+                modeloContactos.addElement(c.getName() + " (" + c.getIp() + ")");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void guardarContactoSiNoExiste(String idUsuario, String nombre, String ip) {
+        try {
+            if (!contactDao.existByCode(idUsuario)) {
+                Contact contacto = Contact.builder()
+                        .code(idUsuario)
+                        .name(nombre)
+                        .ip(ip)
+                        .build();
+                contactDao.save(contacto);
+            } else {
+                // Actualizar la IP si el contacto ya existe
+                Contact contacto = contactDao.findByCode(idUsuario);
+                contacto.setIp(ip);
+                contactDao.update(contacto);
+            }
+            cargarContactos();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void eliminarContacto() {
+        int index = listaContactos.getSelectedIndex();
+        if (index < 0) {
+            JOptionPane.showMessageDialog(this, "Selecciona un contacto para eliminar.");
+            return;
+        }
+        Contact contacto = contactosEnMemoria.get(index);
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "¿Eliminar a " + contacto.getName() + "?",
+                "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try {
+            contactDao.delete(contacto.getId());
+            cargarContactos();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Error al eliminar contacto: " + e.getMessage());
         }
     }
 }

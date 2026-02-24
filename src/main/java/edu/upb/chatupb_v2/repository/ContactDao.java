@@ -3,9 +3,11 @@ package edu.upb.chatupb_v2.repository;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.ConnectException;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 
 @Slf4j
@@ -16,6 +18,27 @@ public class ContactDao {
 
     public ContactDao() {
         helper = new DaoHelper<>();
+    }
+
+    public void createTableIfNotExists() {
+        String sql = "CREATE TABLE IF NOT EXISTS contact ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + "code TEXT NOT NULL, "
+                + "name TEXT NOT NULL, "
+                + "ip TEXT NOT NULL"
+                + ")";
+        try (Connection conn = ConnectionDB.getInstance().getConection();
+             Statement st = conn.createStatement()) {
+            st.execute(sql);
+        } catch (SQLException e) {
+            log.error("Error al crear tabla contact: {}", e.getMessage());
+        }
+    }
+
+    public void delete(long id) throws ConnectException, SQLException {
+        String query = "DELETE FROM contact WHERE id = ?";
+        DaoHelper.QueryParameters params = pst -> pst.setLong(1, id);
+        helper.update(query, params);
     }
 
     DaoHelper.ResultReader<Contact> resultReader = result -> {
