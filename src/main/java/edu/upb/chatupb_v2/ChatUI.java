@@ -242,17 +242,17 @@ public class ChatUI extends JFrame implements ChatEventListener {
         });
     }
 
-    // ----- PREGUNTA 5 EXAMEN: ACCION ACTIVAR FUERA DE LINEA -----
+    // PREGUNTA 5 EXAMEN: ACCION ACTIVAR FUERA DE LINEA
     private void activarFueraDeLinea() {
         if (nombresConectados.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No hay contactos activos para notificar");
+            JOptionPane.showMessageDialog(this, "No hay contactos activos para notificar.");
             return;
         }
 
         int confirmar = JOptionPane.showConfirmDialog(
                 this,
-                "Deseas desconectarte? Se va a notificar a todos tus contactos activos.",
-                "Confirmar desconexion",
+                "¿Deseas ponerte fuera de línea? Se notificará a todos tus contactos activos.",
+                "Confirmar Fuera de Línea",
                 JOptionPane.YES_NO_OPTION
         );
 
@@ -260,27 +260,42 @@ public class ChatUI extends JFrame implements ChatEventListener {
             try {
                 Despedida despedida = new Despedida("ID_MIGUEL");
                 Mediador.getInstancia().enviarATodos(despedida.generarTrama());
-                areaChat.append("Despedida (0018) enviada a todos los contactos. Estás fuera de línea.\n");
-            } catch (Exception e) {
-                e.printStackTrace();
+                areaChat.append("-> Despedida (0018) enviada a todos los contactos. Estás fuera de línea.\n");
+
+                // Deshabilitar envío de mensajes
+                btnEnviarMensaje.setEnabled(false);
+                btnEnviarInvitacion.setEnabled(false);
+                btnFueraDeLinea.setEnabled(false);
+                lblEstado.setText("Estado: Fuera de línea");
+                lblEstado.setForeground(Color.GRAY);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         }
     }
 
     @Override
-    public void onDespedidaRecibida(Despedida despedida, SocketClient emisor) {
+    public void onDespedidaRecibida(Despedida despedida, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
-            String nombre = nombresConectados.getOrDefault(emisor.getIp(), emisor.getIp());
+            String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
 
             JOptionPane.showMessageDialog(
                     this,
-                    "El usuario '" + nombre + "' (" + emisor.getIp() + ") se ha puesto fuera de línea.",
+                    "El usuario '" + nombre + "' (" + sender.getIp() + ") se ha puesto fuera de línea.",
                     "Usuario Fuera de Línea (Trama 0018)",
                     JOptionPane.WARNING_MESSAGE
             );
 
-            Mediador.getInstancia().eliminar(emisor.getIp());
-            areaChat.append("El usuario " + nombre + " (" + emisor.getIp() + ") se ha puesto fuera de línea (0018).\n");
+            // Eliminar del combo de destinatarios y del mapa
+            nombresConectados.remove(sender.getIp());
+            for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
+                if (extraerIp(modeloDestinatarios.getElementAt(i)).equals(sender.getIp())) {
+                    modeloDestinatarios.removeElementAt(i);
+                    break;
+                }
+            }
+            Mediador.getInstancia().eliminar(sender.getIp());
+            areaChat.append("<- " + nombre + " (" + sender.getIp() + ") se ha puesto fuera de línea (0018).\n");
             actualizarEstado();
         });
     }
