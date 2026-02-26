@@ -6,23 +6,21 @@ import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.bl.server.ChatEventListener;
-import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
 
+import edu.upb.chatupb_v2.controller.ChatController;
+import edu.upb.chatupb_v2.controller.ContactController;
 import edu.upb.chatupb_v2.repository.Contact;
-import edu.upb.chatupb_v2.repository.ContactDao;
+import edu.upb.chatupb_v2.view.IChatView;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.HashMap;
+import java.util.List;
 
-public class ChatUI extends JFrame implements ChatEventListener {
-
-    // Mapa de IP -> nombre para mostrar en la UI
-    private final HashMap<String, String> nombresConectados = new HashMap<>();
+public class ChatUI extends JFrame implements ChatEventListener, IChatView {
 
     // Componentes visuales
     private JTextField txtIpDestino;
@@ -39,10 +37,13 @@ public class ChatUI extends JFrame implements ChatEventListener {
     // Tabla de contactos
     private DefaultTableModel modeloTablaContactos;
     private JTable tablaContactos;
-    private final ContactDao contactDao = new ContactDao();
-    private java.util.List<Contact> contactosEnMemoria = new java.util.ArrayList<>();
+    private final ContactController contactController;
+    private final ChatController chatController;
+    private List<Contact> contactosEnMemoria = new java.util.ArrayList<>();
 
     public ChatUI() {
+        this.contactController = new ContactController(this);
+        this.chatController = new ChatController(this, this.contactController);
         configurarVentana();
     }
 
@@ -151,41 +152,17 @@ public class ChatUI extends JFrame implements ChatEventListener {
         });
 
         // Cargar contactos desde la base de datos
-        cargarContactos();
+        contactController.onLoad();
     }
 
-    // ACCIÓN: Cuando hacemos clic en "Enviar Invitación"
+    // --- Acciones delegadas a los controllers ---
+
     private void enviarInvitacion() {
-        try {
-            String ip = txtIpDestino.getText().trim();
-            String miNombre = txtMiNombre.getText().trim();
-
-            if (Mediador.getInstancia().existe(ip)) {
-                JOptionPane.showMessageDialog(this, "Ya existe una conexión activa con " + ip);
-                return;
-            }
-
-            // 1. Conectamos al socket destino y registramos en el Mediador
-            SocketClient cliente = new SocketClient(ip);
-            cliente.addChatEventListener(this);
-            Mediador.getInstancia().registrar(cliente);
-            cliente.start();
-
-            // 2. Delegamos el envío de la trama 001 al Mediador
-            Invitacion inv = new Invitacion("ID_MIGUEL", miNombre);
-            Mediador.getInstancia().enviarMensaje(ip, inv.generarTrama());
-
-            // 3. Actualizamos la interfaz
-            lblEstado.setText("Estado: Invitación enviada a " + ip + "...");
-            lblEstado.setForeground(Color.ORANGE);
-            areaChat.append("-> Invitación (001) enviada a " + ip + "\n");
-
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al conectar a la IP: " + ex.getMessage());
-        }
+        String ip = txtIpDestino.getText().trim();
+        String miNombre = txtMiNombre.getText().trim();
+        chatController.enviarInvitacion(ip, miNombre, this);
     }
 
-    // ACCIÓN: Cuando enviamos un mensaje en el chat
     private void enviarMensajeChat() {
         String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
         if (itemSeleccionado == null) return;
@@ -194,188 +171,7 @@ public class ChatUI extends JFrame implements ChatEventListener {
         String msg = txtMensaje.getText().trim();
         if (msg.isEmpty()) return;
 
-        try {
-            String idMensaje = String.valueOf(System.currentTimeMillis());
-            EnvioMensaje envio = new EnvioMensaje("ID_MIGUEL", idMensaje, msg);
-            // Delegamos el envío al Mediador en vez de usar un socket directo
-            Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
-
-            String nombre = nombresConectados.getOrDefault(ip, ip);
-            areaChat.append("Yo -> " + nombre + ": " + msg + "\n");
-            txtMensaje.setText("");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    @Override
-    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> {
-            int respuesta = JOptionPane.showConfirmDialog(
-                    this,
-                    "El usuario '" + inv.getNombre() + "' (" + sender.getIp() + ") te ha enviado una invitación.\n¿Aceptas conectarte?",
-                    "Invitación Recibida (Trama 001)",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-            if (respuesta == JOptionPane.YES_OPTION) {
-                try {
-                    // 1. Armar y enviar trama 002 (Aceptación) a través del Mediador
-                    String miNombre = txtMiNombre.getText().trim();
-                    AceptacionInvitacion acc = new AceptacionInvitacion("ID_MIGUEL", miNombre);
-                    Mediador.getInstancia().enviarMensaje(sender.getIp(), acc.generarTrama());
-
-                    // 2. Registrar la conexión en la UI (sin sobrescribir conexiones anteriores)
-                    agregarConexion(sender.getIp(), inv.getNombre());
-                    areaChat.append("<- Has aceptado la invitación de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
-
-                    // 3. Guardar contacto en la base de datos
-                    guardarContactoSiNoExiste(inv.getIdUsuario(), inv.getNombre(), sender.getIp());
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else {
-                try {
-                    // Enviar trama 003 (Rechazo) a través del Mediador
-                    RechazoInvitacion rechazo = new RechazoInvitacion();
-                    Mediador.getInstancia().enviarMensaje(sender.getIp(), rechazo.generarTrama());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                // Eliminar la conexión rechazada del Mediador
-                Mediador.getInstancia().eliminar(sender.getIp());
-                areaChat.append("- Rechazaste la invitación de " + inv.getNombre() + "\n");
-            }
-        });
-    }
-
-    @Override
-    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> {
-            // Registrar la nueva conexión en la UI (sin sobrescribir conexiones anteriores)
-            agregarConexion(sender.getIp(), acc.getNombre());
-            areaChat.append("<- " + acc.getNombre() + " (" + sender.getIp() + ") aceptó tu invitación (002). ¡Ya pueden hablar!\n");
-
-            // Guardar contacto en la base de datos
-            guardarContactoSiNoExiste(acc.getIdUsuario(), acc.getNombre(), sender.getIp());
-        });
-    }
-
-    @Override
-    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> {
-            // Eliminar la conexión rechazada del Mediador
-            Mediador.getInstancia().eliminar(sender.getIp());
-            areaChat.append("<- " + sender.getIp() + " rechazó tu invitación (003).\n");
-            actualizarEstado();
-            refrescarEstadoContactos();
-        });
-    }
-
-    @Override
-    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> {
-            String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
-            areaChat.append(nombre + ": " + msg.getContenido() + "\n");
-
-            // Enviar trama 008 (Confirmación de recepción) a través del Mediador
-            try {
-                ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
-                Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    @Override
-    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> {
-            String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
-            areaChat.append("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + nombre + "]\n");
-        });
-    }
-
-    // --- Métodos auxiliares para gestión de conexiones múltiples ---
-
-    private void agregarConexion(String ip, String nombre) {
-        nombresConectados.put(ip, nombre);
-        String item = nombre + " (" + ip + ")";
-        // Evitar duplicados en el combo
-        for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
-            if (extraerIp(modeloDestinatarios.getElementAt(i)).equals(ip)) {
-                actualizarEstado();
-                refrescarEstadoContactos();
-                return;
-            }
-        }
-        modeloDestinatarios.addElement(item);
-        actualizarEstado();
-        refrescarEstadoContactos();
-    }
-
-    private String extraerIp(String item) {
-        int start = item.lastIndexOf('(');
-        int end = item.lastIndexOf(')');
-        return item.substring(start + 1, end);
-    }
-
-    private void actualizarEstado() {
-        int n = nombresConectados.size();
-        if (n == 0) {
-            lblEstado.setText("Estado: Sin conexiones activas");
-            lblEstado.setForeground(Color.RED);
-            btnEnviarMensaje.setEnabled(false);
-        } else {
-            lblEstado.setText("Estado: " + n + " conexión(es) activa(s)");
-            lblEstado.setForeground(new Color(0, 153, 0));
-            btnEnviarMensaje.setEnabled(true);
-        }
-    }
-
-    // --- Métodos de gestión de contactos (SQLite) ---
-
-    private void cargarContactos() {
-        try {
-            contactosEnMemoria = contactDao.findAll();
-            modeloTablaContactos.setRowCount(0);
-            for (Contact c : contactosEnMemoria) {
-                boolean conectado = nombresConectados.containsKey(c.getIp());
-                modeloTablaContactos.addRow(new Object[]{c.getName(), c.getIp(), conectado});
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void refrescarEstadoContactos() {
-        for (int i = 0; i < contactosEnMemoria.size(); i++) {
-            boolean conectado = nombresConectados.containsKey(contactosEnMemoria.get(i).getIp());
-            modeloTablaContactos.setValueAt(conectado, i, 2);
-        }
-    }
-
-    private void guardarContactoSiNoExiste(String idUsuario, String nombre, String ip) {
-        try {
-            if (!contactDao.existByCode(idUsuario)) {
-                Contact contacto = Contact.builder()
-                        .code(idUsuario)
-                        .name(nombre)
-                        .ip(ip)
-                        .build();
-                contactDao.save(contacto);
-            } else {
-                // Actualizar la IP si el contacto ya existe
-                Contact contacto = contactDao.findByCode(idUsuario);
-                contacto.setIp(ip);
-                contactDao.update(contacto);
-            }
-            cargarContactos();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        chatController.enviarMensaje(ip, msg);
     }
 
     private void eliminarContacto() {
@@ -390,12 +186,125 @@ public class ChatUI extends JFrame implements ChatEventListener {
                 "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        try {
-            contactDao.delete(contacto.getId());
-            cargarContactos();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al eliminar contacto: " + e.getMessage());
+        contactController.eliminar(contacto.getId());
+    }
+
+    // --- ChatEventListener: delega al ChatController ---
+
+    @Override
+    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarInvitacionRecibida(inv, sender));
+    }
+
+    @Override
+    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarAceptacion(acc, sender));
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarRechazo(rechazo, sender));
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarMensajeRecibido(msg, sender));
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarConfirmacion(conf, sender));
+    }
+
+    // --- Implementaciones de IChatView ---
+
+    @Override
+    public void onLoad(List<Contact> contacts) {
+        contactosEnMemoria = contacts;
+        modeloTablaContactos.setRowCount(0);
+        for (Contact c : contactosEnMemoria) {
+            boolean conectado = chatController.isConectado(c.getIp());
+            modeloTablaContactos.addRow(new Object[]{c.getName(), c.getIp(), conectado});
         }
+    }
+
+    @Override
+    public void appendChat(String texto) {
+        areaChat.append(texto);
+    }
+
+    @Override
+    public boolean mostrarDialogoInvitacion(String nombre, String ip) {
+        int respuesta = JOptionPane.showConfirmDialog(
+                this,
+                "El usuario '" + nombre + "' (" + ip + ") te ha enviado una invitación.\n¿Aceptas conectarte?",
+                "Invitación Recibida (Trama 001)",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE
+        );
+        return respuesta == JOptionPane.YES_OPTION;
+    }
+
+    @Override
+    public void mostrarError(String mensaje) {
+        JOptionPane.showMessageDialog(this, mensaje);
+    }
+
+    @Override
+    public void agregarConexionUI(String ip, String nombre) {
+        String item = nombre + " (" + ip + ")";
+        // Evitar duplicados en el combo
+        for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
+            if (extraerIp(modeloDestinatarios.getElementAt(i)).equals(ip)) {
+                return;
+            }
+        }
+        modeloDestinatarios.addElement(item);
+    }
+
+    @Override
+    public void actualizarEstado(int numConexiones) {
+        if (numConexiones == 0) {
+            lblEstado.setText("Estado: Sin conexiones activas");
+            lblEstado.setForeground(Color.RED);
+            btnEnviarMensaje.setEnabled(false);
+        } else {
+            lblEstado.setText("Estado: " + numConexiones + " conexión(es) activa(s)");
+            lblEstado.setForeground(new Color(0, 153, 0));
+            btnEnviarMensaje.setEnabled(true);
+        }
+    }
+
+    @Override
+    public void refrescarEstadoContactos() {
+        for (int i = 0; i < contactosEnMemoria.size(); i++) {
+            boolean conectado = chatController.isConectado(contactosEnMemoria.get(i).getIp());
+            modeloTablaContactos.setValueAt(conectado, i, 2);
+        }
+    }
+
+    @Override
+    public void actualizarEstadoInvitacion(String ip) {
+        lblEstado.setText("Estado: Invitación enviada a " + ip + "...");
+        lblEstado.setForeground(Color.ORANGE);
+    }
+
+    @Override
+    public void limpiarMensaje() {
+        txtMensaje.setText("");
+    }
+
+    @Override
+    public String getMiNombre() {
+        return txtMiNombre.getText().trim();
+    }
+
+    // --- Utilidad ---
+
+    private String extraerIp(String item) {
+        int start = item.lastIndexOf('(');
+        int end = item.lastIndexOf(')');
+        return item.substring(start + 1, end);
     }
 
     // --- Renderer personalizado: esfera verde (conectado) / roja (desconectado) ---
