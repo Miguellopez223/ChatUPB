@@ -4,6 +4,7 @@
 package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.bl.server.ChatServer;
+import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.repository.ContactDao;
 
 public class ChatUPB_V2 {
@@ -14,6 +15,9 @@ public class ChatUPB_V2 {
 
         ChatUI chatUI = new ChatUI();
 
+        // Configurar el Mediador con el ChatController para que pueda delegar eventos
+        Mediador.getInstancia().setChatController(chatUI.getChatController());
+
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 chatUI.setVisible(true);
@@ -22,8 +26,8 @@ public class ChatUPB_V2 {
 
         try{
             ChatServer chatServer = new ChatServer();
-            // Le pasamos la vista al servidor para que escuche los eventos
-            chatServer.addChatEventListener(chatUI);
+            // El Mediador es quien escucha los eventos del socket (ChatEventListener)
+            chatServer.addChatEventListener(Mediador.getInstancia());
             chatServer.start();
         }catch(Exception e){
             e.printStackTrace();

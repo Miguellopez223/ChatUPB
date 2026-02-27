@@ -1,13 +1,5 @@
 package edu.upb.chatupb_v2;
 
-import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
-import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
-import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
-import edu.upb.chatupb_v2.bl.message.Invitacion;
-import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
-import edu.upb.chatupb_v2.bl.server.ChatEventListener;
-import edu.upb.chatupb_v2.bl.server.SocketClient;
-
 import edu.upb.chatupb_v2.controller.ChatController;
 import edu.upb.chatupb_v2.controller.ContactController;
 import edu.upb.chatupb_v2.repository.Contact;
@@ -20,7 +12,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-public class ChatUI extends JFrame implements ChatEventListener, IChatView {
+public class ChatUI extends JFrame implements IChatView {
 
     // Componentes visuales
     private JTextField txtIpDestino;
@@ -155,12 +147,16 @@ public class ChatUI extends JFrame implements ChatEventListener, IChatView {
         contactController.onLoad();
     }
 
+    public ChatController getChatController() {
+        return chatController;
+    }
+
     // --- Acciones delegadas a los controllers ---
 
     private void enviarInvitacion() {
         String ip = txtIpDestino.getText().trim();
         String miNombre = txtMiNombre.getText().trim();
-        chatController.enviarInvitacion(ip, miNombre, this);
+        chatController.enviarInvitacion(ip, miNombre);
     }
 
     private void enviarMensajeChat() {
@@ -187,33 +183,6 @@ public class ChatUI extends JFrame implements ChatEventListener, IChatView {
         if (confirm != JOptionPane.YES_OPTION) return;
 
         contactController.eliminar(contacto.getId());
-    }
-
-    // --- ChatEventListener: delega al ChatController ---
-
-    @Override
-    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarInvitacionRecibida(inv, sender));
-    }
-
-    @Override
-    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarAceptacion(acc, sender));
-    }
-
-    @Override
-    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarRechazo(rechazo, sender));
-    }
-
-    @Override
-    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarMensajeRecibido(msg, sender));
-    }
-
-    @Override
-    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarConfirmacion(conf, sender));
     }
 
     // --- Implementaciones de IChatView ---

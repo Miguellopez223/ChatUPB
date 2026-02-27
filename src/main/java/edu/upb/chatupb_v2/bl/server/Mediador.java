@@ -1,5 +1,13 @@
 package edu.upb.chatupb_v2.bl.server;
 
+import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
+import edu.upb.chatupb_v2.bl.message.Invitacion;
+import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.controller.ChatController;
+
+import javax.swing.SwingUtilities;
 import java.io.IOException;
 import java.util.HashMap;
 
@@ -7,14 +15,17 @@ import java.util.HashMap;
  * Mediador central de conexiones.
  * Patron Singleton: solo existe una instancia en toda la aplicacion.
  * Patron Mediador: centraliza el registro y busqueda de SocketClients por IP.
+ * Implementa ChatEventListener para escuchar los eventos de los sockets
+ * y delegarlos al ChatController.
  *
  * La clave del HashMap es la IP del usuario y el valor es su instancia de SocketClient.
  *
  */
-public class Mediador {
+public class Mediador implements ChatEventListener {
 
     // --- Singleton ---
     private static Mediador instancia;
+    private ChatController chatController;
 
     private Mediador() {
         // Constructor privado para evitar instancias externas
@@ -99,5 +110,38 @@ public class Mediador {
         for (SocketClient cliente : clientes.values()) {
             cliente.send(trama);
         }
+    }
+
+    // --- ChatController para delegar eventos ---
+
+    public void setChatController(ChatController chatController) {
+        this.chatController = chatController;
+    }
+
+    // --- ChatEventListener: escucha eventos del socket y delega al controller ---
+
+    @Override
+    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarInvitacionRecibida(inv, sender));
+    }
+
+    @Override
+    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarAceptacion(acc, sender));
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarRechazo(rechazo, sender));
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarMensajeRecibido(msg, sender));
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> chatController.procesarConfirmacion(conf, sender));
     }
 }

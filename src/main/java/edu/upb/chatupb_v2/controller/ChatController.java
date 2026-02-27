@@ -5,7 +5,6 @@ import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
-import edu.upb.chatupb_v2.bl.server.ChatEventListener;
 import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
 import edu.upb.chatupb_v2.view.IChatView;
@@ -31,14 +30,14 @@ public class ChatController {
         return nombresConectados.getOrDefault(ip, ip);
     }
 
-    public void enviarInvitacion(String ip, String miNombre, ChatEventListener listener) {
+    public void enviarInvitacion(String ip, String miNombre) {
         if (Mediador.getInstancia().existe(ip)) {
             view.mostrarError("Ya existe una conexión activa con " + ip);
             return;
         }
         try {
             SocketClient cliente = new SocketClient(ip);
-            cliente.addChatEventListener(listener);
+            cliente.addChatEventListener(Mediador.getInstancia());
             Mediador.getInstancia().registrar(cliente);
             cliente.start();
 
