@@ -7,6 +7,7 @@ import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
+import edu.upb.chatupb_v2.controller.exception.OperationException;
 import edu.upb.chatupb_v2.view.IChatView;
 
 import java.util.HashMap;
@@ -36,18 +37,11 @@ public class ChatController {
             return;
         }
         try {
-            SocketClient cliente = new SocketClient(ip);
-            cliente.addChatEventListener(Mediador.getInstancia());
-            Mediador.getInstancia().registrar(cliente);
-            cliente.start();
-
-            Invitacion inv = new Invitacion("ID_MIGUEL", miNombre);
-            Mediador.getInstancia().enviarMensaje(ip, inv.generarTrama());
-
+            Mediador.getInstancia().invitacion(ip);
             view.actualizarEstadoInvitacion(ip);
             view.appendChat("-> Invitación (001) enviada a " + ip + "\n");
-        } catch (Exception ex) {
-            view.mostrarError("Error al conectar a la IP: " + ex.getMessage());
+        } catch (OperationException ex) {
+            view.mostrarError(ex.getMessage());
         }
     }
 

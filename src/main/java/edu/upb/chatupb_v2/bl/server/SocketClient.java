@@ -4,6 +4,7 @@
  */
 package edu.upb.chatupb_v2.bl.server;
 
+import edu.upb.chatupb_v2.bl.message.Message;
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
@@ -116,6 +117,10 @@ public class SocketClient extends Thread {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void send(Message message) throws IOException {
+        send(message.generarTrama());
     }
 
     public void close() {

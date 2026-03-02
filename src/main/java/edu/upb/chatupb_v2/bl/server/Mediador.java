@@ -6,6 +6,7 @@ import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.controller.ChatController;
+import edu.upb.chatupb_v2.controller.exception.OperationException;
 
 import javax.swing.SwingUtilities;
 import java.io.IOException;
@@ -143,5 +144,27 @@ public class Mediador implements ChatEventListener {
     @Override
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         SwingUtilities.invokeLater(() -> chatController.procesarConfirmacion(conf, sender));
+    }
+
+    public void invitacion(String ip) {
+        SocketClient client;
+        try {
+            client = new SocketClient(ip);
+            client.addChatEventListener(this);
+            registrar(client);
+            client.start();
+        }catch (IOException e) {
+            throw new OperationException("No se logró establecer la conexión");
+        }
+
+        Invitacion invitacion = new Invitacion();
+        invitacion.setIdUsuario("ID_MIGUEL");
+        invitacion.setNombre("Miguel Angel");
+
+        try {
+            client.send(invitacion);
+        } catch (IOException e) {
+            throw new OperationException("No se logró enviar la invitación");
+        }
     }
 }
