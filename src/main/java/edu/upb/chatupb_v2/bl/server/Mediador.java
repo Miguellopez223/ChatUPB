@@ -5,31 +5,30 @@ import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
-import edu.upb.chatupb_v2.controller.ChatController;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
 
-import javax.swing.SwingUtilities;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Mediador central de conexiones.
  * Patron Singleton: solo existe una instancia en toda la aplicacion.
  * Patron Mediador: centraliza el registro y busqueda de SocketClients por IP.
- * Implementa ChatEventListener para escuchar los eventos de los sockets
- * y delegarlos al ChatController.
+ * Implementa ChatEventListener para escuchar los eventos de los sockets.
  *
- * La clave del HashMap es la IP del usuario y el valor es su instancia de SocketClient.
- *
+ * El Mediador NO baja a la interfaz ni al controller. Solo gestiona el mapa de
+ * clientes (HashMap) y reenvia eventos a los ChatEventListener registrados.
+ * El controller se suscribe como listener; asi la dependencia va del controller
+ * hacia la BL, nunca al reves.
  */
 public class Mediador implements ChatEventListener {
 
     // --- Singleton ---
     private static Mediador instancia;
-    private ChatController chatController;
 
     private Mediador() {
-        // Constructor privado para evitar instancias externas
     }
 
     public static Mediador getInstancia() {
@@ -39,12 +38,24 @@ public class Mediador implements ChatEventListener {
         return instancia;
     }
 
-    // --- HashMap: IP -> SocketClient ---
+    // --- Mapa de clientes: IP -> SocketClient ---
     private final HashMap<String, SocketClient> clientes = new HashMap<>();
+
+    // --- Listeners suscritos (controllers u otros) ---
+    private final List<ChatEventListener> listeners = new ArrayList<>();
+
+    /**
+     * Suscribe un listener para recibir eventos reenviados por el Mediador.
+     * El controller implementa ChatEventListener y se registra aqui.
+     */
+    public void addChatEventListener(ChatEventListener listener) {
+        listeners.add(listener);
+    }
+
+    // --- Gestion del mapa de clientes ---
 
     /**
      * Registra un SocketClient asociado a su IP.
-     * Si ya existia una conexion con esa IP, la reemplaza.
      */
     public void registrar(SocketClient socketClient) {
         String ip = socketClient.getIp();
@@ -64,7 +75,6 @@ public class Mediador implements ChatEventListener {
 
     /**
      * Busca un SocketClient por su IP.
-     * @return el SocketClient asociado, o null si no existe.
      */
     public SocketClient obtener(String ip) {
         return clientes.get(ip);
@@ -91,9 +101,10 @@ public class Mediador implements ChatEventListener {
         return clientes.size();
     }
 
+    // --- Envio de mensajes a traves del mapa de clientes ---
+
     /**
      * Envia una trama a un cliente especifico identificado por su IP.
-     * Centraliza el envio para que la UI no acceda directamente al socket.
      */
     public void enviarMensaje(String ip, String trama) throws IOException {
         SocketClient cliente = clientes.get(ip);
@@ -113,58 +124,70 @@ public class Mediador implements ChatEventListener {
         }
     }
 
-    // --- ChatController para delegar eventos ---
+    // --- Operacion de invitacion: crea socket, registra en mapa, envia trama ---
 
-    public void setChatController(ChatController chatController) {
-        this.chatController = chatController;
-    }
-
-    // --- ChatEventListener: escucha eventos del socket y delega al controller ---
-
-    @Override
-    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarInvitacionRecibida(inv, sender));
-    }
-
-    @Override
-    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarAceptacion(acc, sender));
-    }
-
-    @Override
-    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarRechazo(rechazo, sender));
-    }
-
-    @Override
-    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarMensajeRecibido(msg, sender));
-    }
-
-    @Override
-    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
-        SwingUtilities.invokeLater(() -> chatController.procesarConfirmacion(conf, sender));
-    }
-
-    public void invitacion(String ip) {
+    /**
+     * Inicia una invitacion saliente.
+     * Crea el SocketClient, lo registra en el mapa de clientes y envia la trama 001.
+     *
+     * @param ip        IP destino
+     * @param idUsuario identificador del usuario que envia
+     * @param nombre    nombre del usuario que envia
+     */
+    public void invitacion(String ip, String idUsuario, String nombre) {
         SocketClient client;
         try {
             client = new SocketClient(ip);
             client.addChatEventListener(this);
             registrar(client);
             client.start();
-        }catch (IOException e) {
+        } catch (IOException e) {
             throw new OperationException("No se logró establecer la conexión");
         }
 
-        Invitacion invitacion = new Invitacion();
-        invitacion.setIdUsuario("ID_MIGUEL");
-        invitacion.setNombre("Miguel Angel");
+        Invitacion invitacion = new Invitacion(idUsuario, nombre);
 
         try {
             client.send(invitacion);
         } catch (IOException e) {
             throw new OperationException("No se logró enviar la invitación");
+        }
+    }
+
+    // --- ChatEventListener: recibe eventos del socket y los reenvia a los listeners ---
+
+    @Override
+    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onInvitacionRecibida(inv, sender);
+        }
+    }
+
+    @Override
+    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onAceptacionRecibida(acc, sender);
+        }
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onRechazoRecibido(rechazo, sender);
+        }
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onMensajeRecibido(msg, sender);
+        }
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onConfirmacionRecibida(conf, sender);
         }
     }
 }

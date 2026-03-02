@@ -2,6 +2,7 @@ package edu.upb.chatupb_v2.controller;
 
 import edu.upb.chatupb_v2.repository.Contact;
 import edu.upb.chatupb_v2.repository.ContactDao;
+import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
 
 import java.util.ArrayList;
@@ -25,7 +26,12 @@ public class ContactController {
             e.printStackTrace();
             contacts = new ArrayList<>();
         }
-        view.onLoad(contacts);
+        // Convertir entidades del repositorio a DTOs del view
+        List<ContactInfo> contactInfos = new ArrayList<>();
+        for (Contact c : contacts) {
+            contactInfos.add(new ContactInfo(c.getId(), c.getName(), c.getIp()));
+        }
+        view.onLoad(contactInfos);
     }
 
     public void guardarContactoSiNoExiste(String idUsuario, String nombre, String ip) {

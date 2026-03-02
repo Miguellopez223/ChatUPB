@@ -2,7 +2,7 @@ package edu.upb.chatupb_v2;
 
 import edu.upb.chatupb_v2.controller.ChatController;
 import edu.upb.chatupb_v2.controller.ContactController;
-import edu.upb.chatupb_v2.repository.Contact;
+import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
 
 import javax.swing.*;
@@ -31,7 +31,7 @@ public class ChatUI extends JFrame implements IChatView {
     private JTable tablaContactos;
     private final ContactController contactController;
     private final ChatController chatController;
-    private List<Contact> contactosEnMemoria = new java.util.ArrayList<>();
+    private List<ContactInfo> contactosEnMemoria = new java.util.ArrayList<>();
 
     public ChatUI() {
         this.contactController = new ContactController(this);
@@ -137,7 +137,7 @@ public class ChatUI extends JFrame implements IChatView {
             if (!e.getValueIsAdjusting()) {
                 int row = tablaContactos.getSelectedRow();
                 if (row >= 0 && row < contactosEnMemoria.size()) {
-                    Contact c = contactosEnMemoria.get(row);
+                    ContactInfo c = contactosEnMemoria.get(row);
                     txtIpDestino.setText(c.getIp());
                 }
             }
@@ -176,7 +176,7 @@ public class ChatUI extends JFrame implements IChatView {
             JOptionPane.showMessageDialog(this, "Selecciona un contacto para eliminar.");
             return;
         }
-        Contact contacto = contactosEnMemoria.get(row);
+        ContactInfo contacto = contactosEnMemoria.get(row);
         int confirm = JOptionPane.showConfirmDialog(this,
                 "¿Eliminar a " + contacto.getName() + "?",
                 "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
@@ -188,10 +188,10 @@ public class ChatUI extends JFrame implements IChatView {
     // --- Implementaciones de IChatView ---
 
     @Override
-    public void onLoad(List<Contact> contacts) {
-        contactosEnMemoria = contacts;
+    public void onLoad(List<ContactInfo> contactos) {
+        contactosEnMemoria = contactos;
         modeloTablaContactos.setRowCount(0);
-        for (Contact c : contactosEnMemoria) {
+        for (ContactInfo c : contactosEnMemoria) {
             boolean conectado = chatController.isConectado(c.getIp());
             modeloTablaContactos.addRow(new Object[]{c.getName(), c.getIp(), conectado});
         }

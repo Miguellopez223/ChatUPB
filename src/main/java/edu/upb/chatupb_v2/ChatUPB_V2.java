@@ -15,8 +15,9 @@ public class ChatUPB_V2 {
 
         ChatUI chatUI = new ChatUI();
 
-        // Configurar el Mediador con el ChatController para que pueda delegar eventos
-        Mediador.getInstancia().setChatController(chatUI.getChatController());
+        // El controller se suscribe como listener del Mediador.
+        // El Mediador NO baja al controller; el controller sube al Mediador.
+        Mediador.getInstancia().addChatEventListener(chatUI.getChatController());
 
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {

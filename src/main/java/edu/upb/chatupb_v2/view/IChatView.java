@@ -1,13 +1,11 @@
 package edu.upb.chatupb_v2.view;
 
-import edu.upb.chatupb_v2.repository.Contact;
-
 import java.util.List;
 
 public interface IChatView {
 
-    // Contactos
-    void onLoad(List<Contact> contacts);
+    // Contactos (recibe DTO, no la entidad del repositorio)
+    void onLoad(List<ContactInfo> contactos);
 
     // Chat
     void appendChat(String texto);

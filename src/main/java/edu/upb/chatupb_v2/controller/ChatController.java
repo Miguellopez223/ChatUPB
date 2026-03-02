@@ -5,14 +5,25 @@ import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.bl.server.ChatEventListener;
 import edu.upb.chatupb_v2.bl.server.Mediador;
 import edu.upb.chatupb_v2.bl.server.SocketClient;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
+import edu.upb.chatupb_v2.repository.Contact;
 import edu.upb.chatupb_v2.view.IChatView;
 
+import javax.swing.SwingUtilities;
 import java.util.HashMap;
 
-public class ChatController {
+/**
+ * Controller de chat. Implementa ChatEventListener para suscribirse al Mediador.
+ * El Mediador no baja al controller: el controller sube al Mediador registrandose
+ * como listener. Asi la dependencia va de controller -> BL, nunca al reves.
+ *
+ * El manejo de SwingUtilities.invokeLater se hace aqui (en la capa del controller),
+ * no en la BL.
+ */
+public class ChatController implements ChatEventListener {
 
     private final IChatView view;
     private final ContactController contactController;
@@ -31,13 +42,15 @@ public class ChatController {
         return nombresConectados.getOrDefault(ip, ip);
     }
 
+    // --- Acciones iniciadas por el usuario (desde la UI) ---
+
     public void enviarInvitacion(String ip, String miNombre) {
         if (Mediador.getInstancia().existe(ip)) {
             view.mostrarError("Ya existe una conexión activa con " + ip);
             return;
         }
         try {
-            Mediador.getInstancia().invitacion(ip);
+            Mediador.getInstancia().invitacion(ip, Contact.ME_CODE, miNombre);
             view.actualizarEstadoInvitacion(ip);
             view.appendChat("-> Invitación (001) enviada a " + ip + "\n");
         } catch (OperationException ex) {
@@ -48,7 +61,7 @@ public class ChatController {
     public void enviarMensaje(String ip, String mensaje) {
         try {
             String idMensaje = String.valueOf(System.currentTimeMillis());
-            EnvioMensaje envio = new EnvioMensaje("ID_MIGUEL", idMensaje, mensaje);
+            EnvioMensaje envio = new EnvioMensaje(Contact.ME_CODE, idMensaje, mensaje);
             Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
 
             String nombre = getNombreConectado(ip);
@@ -59,12 +72,42 @@ public class ChatController {
         }
     }
 
-    public void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
+    // --- ChatEventListener: eventos reenviados por el Mediador ---
+    // Se envuelven en SwingUtilities.invokeLater porque vienen del hilo del socket.
+
+    @Override
+    public void onInvitacionRecibida(Invitacion inv, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarInvitacionRecibida(inv, sender));
+    }
+
+    @Override
+    public void onAceptacionRecibida(AceptacionInvitacion acc, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarAceptacion(acc, sender));
+    }
+
+    @Override
+    public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarRechazo(rechazo, sender));
+    }
+
+    @Override
+    public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarMensajeRecibido(msg, sender));
+    }
+
+    @Override
+    public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarConfirmacion(conf, sender));
+    }
+
+    // --- Procesamiento de eventos (ejecutado en el hilo de Swing) ---
+
+    private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
         boolean aceptada = view.mostrarDialogoInvitacion(inv.getNombre(), sender.getIp());
         if (aceptada) {
             try {
                 String miNombre = view.getMiNombre();
-                AceptacionInvitacion acc = new AceptacionInvitacion("ID_MIGUEL", miNombre);
+                AceptacionInvitacion acc = new AceptacionInvitacion(Contact.ME_CODE, miNombre);
                 Mediador.getInstancia().enviarMensaje(sender.getIp(), acc.generarTrama());
 
                 agregarConexion(sender.getIp(), inv.getNombre());
@@ -86,21 +129,21 @@ public class ChatController {
         }
     }
 
-    public void procesarAceptacion(AceptacionInvitacion acc, SocketClient sender) {
+    private void procesarAceptacion(AceptacionInvitacion acc, SocketClient sender) {
         agregarConexion(sender.getIp(), acc.getNombre());
         view.appendChat("<- " + acc.getNombre() + " (" + sender.getIp() + ") aceptó tu invitación (002). ¡Ya pueden hablar!\n");
 
         contactController.guardarContactoSiNoExiste(acc.getIdUsuario(), acc.getNombre(), sender.getIp());
     }
 
-    public void procesarRechazo(RechazoInvitacion rechazo, SocketClient sender) {
+    private void procesarRechazo(RechazoInvitacion rechazo, SocketClient sender) {
         Mediador.getInstancia().eliminar(sender.getIp());
         view.appendChat("<- " + sender.getIp() + " rechazó tu invitación (003).\n");
         view.actualizarEstado(nombresConectados.size());
         view.refrescarEstadoContactos();
     }
 
-    public void procesarMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
+    private void procesarMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
         String nombre = getNombreConectado(sender.getIp());
         view.appendChat(nombre + ": " + msg.getContenido() + "\n");
 
@@ -112,7 +155,7 @@ public class ChatController {
         }
     }
 
-    public void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
+    private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
         String nombre = getNombreConectado(sender.getIp());
         view.appendChat("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + nombre + "]\n");
     }
