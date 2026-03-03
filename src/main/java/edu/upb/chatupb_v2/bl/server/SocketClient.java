@@ -8,6 +8,9 @@ import edu.upb.chatupb_v2.bl.message.Message;
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
+import edu.upb.chatupb_v2.bl.message.Hello;
+import edu.upb.chatupb_v2.bl.message.HelloRechazo;
+import edu.upb.chatupb_v2.bl.message.HelloResponse;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 
@@ -20,9 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * @author rlaredo
- */
 public class SocketClient extends Thread {
     private final Socket socket;
     private final String ip;
@@ -60,6 +60,8 @@ public class SocketClient extends Thread {
                 String[] split = message.split(java.util.regex.Pattern.quote("|"));
                 if(split.length == 0) continue;
 
+                System.out.println("[Recibido de " + ip + "] Trama " + split[0] + ": " + message);
+
                 switch (split[0]) {
                     case "001": {
                         Invitacion inv = Invitacion.parse(message);
@@ -79,9 +81,29 @@ public class SocketClient extends Thread {
                     }
                     case "003": {
                         RechazoInvitacion rechazo = RechazoInvitacion.parse(message);
-                        // Avisamos a todos los listeners que rechazaron nuestra invitación
                         for (ChatEventListener listener : listeners) {
                             listener.onRechazoRecibido(rechazo, this);
+                        }
+                        break;
+                    }
+                    case "004": {
+                        Hello hello = Hello.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onHelloRecibido(hello, this);
+                        }
+                        break;
+                    }
+                    case "005": {
+                        HelloResponse response = HelloResponse.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onHelloResponseRecibido(response, this);
+                        }
+                        break;
+                    }
+                    case "006": {
+                        HelloRechazo helloRechazo = HelloRechazo.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onHelloRechazoRecibido(helloRechazo, this);
                         }
                         break;
                     }
@@ -110,6 +132,7 @@ public class SocketClient extends Thread {
 
 
     public void send(String message) throws IOException {
+        System.out.println("[Enviado a " + ip + "] Trama " + message.split(java.util.regex.Pattern.quote("|"))[0] + ": " + message);
         message = message + System.lineSeparator();
         try {
             dout.write(message.getBytes("UTF-8"));

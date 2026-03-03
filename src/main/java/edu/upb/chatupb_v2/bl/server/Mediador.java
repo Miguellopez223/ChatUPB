@@ -3,6 +3,9 @@ package edu.upb.chatupb_v2.bl.server;
 import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
 import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
+import edu.upb.chatupb_v2.bl.message.Hello;
+import edu.upb.chatupb_v2.bl.message.HelloRechazo;
+import edu.upb.chatupb_v2.bl.message.HelloResponse;
 import edu.upb.chatupb_v2.bl.message.Invitacion;
 import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
@@ -124,33 +127,50 @@ public class Mediador implements ChatEventListener {
         }
     }
 
-    // --- Operacion de invitacion: crea socket, registra en mapa, envia trama ---
+    // --- Operaciones salientes: crean socket, registran en mapa, envian trama ---
 
     /**
-     * Inicia una invitacion saliente.
-     * Crea el SocketClient, lo registra en el mapa de clientes y envia la trama 001.
-     *
-     * @param ip        IP destino
-     * @param idUsuario identificador del usuario que envia
-     * @param nombre    nombre del usuario que envia
+     * Inicia una invitacion saliente (trama 001).
+     * Crea el SocketClient, lo registra en el mapa de clientes y envia la trama.
      */
     public void invitacion(String ip, String idUsuario, String nombre) {
-        SocketClient client;
-        try {
-            client = new SocketClient(ip);
-            client.addChatEventListener(this);
-            registrar(client);
-            client.start();
-        } catch (IOException e) {
-            throw new OperationException("No se logró establecer la conexión");
-        }
+        SocketClient client = conectarYRegistrar(ip);
 
         Invitacion invitacion = new Invitacion(idUsuario, nombre);
-
         try {
             client.send(invitacion);
         } catch (IOException e) {
             throw new OperationException("No se logró enviar la invitación");
+        }
+    }
+
+    /**
+     * Envia un Hello (trama 004) a un contacto.
+     * Crea el SocketClient, lo registra en el mapa de clientes y envia la trama.
+     */
+    public void enviarHello(String ip, String idUsuario) {
+        SocketClient client = conectarYRegistrar(ip);
+
+        Hello hello = new Hello(idUsuario);
+        try {
+            client.send(hello);
+        } catch (IOException e) {
+            throw new OperationException("No se logró enviar el Hello");
+        }
+    }
+
+    /**
+     * Crea un SocketClient saliente, lo registra en el mapa y lo inicia.
+     */
+    private SocketClient conectarYRegistrar(String ip) {
+        try {
+            SocketClient client = new SocketClient(ip);
+            client.addChatEventListener(this);
+            registrar(client);
+            client.start();
+            return client;
+        } catch (IOException e) {
+            throw new OperationException("No se logró establecer la conexión con " + ip);
         }
     }
 
@@ -174,6 +194,27 @@ public class Mediador implements ChatEventListener {
     public void onRechazoRecibido(RechazoInvitacion rechazo, SocketClient sender) {
         for (ChatEventListener listener : listeners) {
             listener.onRechazoRecibido(rechazo, sender);
+        }
+    }
+
+    @Override
+    public void onHelloRecibido(Hello hello, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onHelloRecibido(hello, sender);
+        }
+    }
+
+    @Override
+    public void onHelloResponseRecibido(HelloResponse response, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onHelloResponseRecibido(response, sender);
+        }
+    }
+
+    @Override
+    public void onHelloRechazoRecibido(HelloRechazo rechazo, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onHelloRechazoRecibido(rechazo, sender);
         }
     }
 

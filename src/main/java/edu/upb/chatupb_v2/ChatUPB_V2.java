@@ -33,5 +33,8 @@ public class ChatUPB_V2 {
         }catch(Exception e){
             e.printStackTrace();
         }
+
+        // Enviar Hello (004) a todos los contactos guardados para notificar que estamos en linea
+        chatUI.getChatController().iniciarHello();
     }
 }

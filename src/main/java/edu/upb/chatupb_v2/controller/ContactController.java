@@ -54,6 +54,38 @@ public class ContactController {
         }
     }
 
+    /**
+     * Retorna la lista de contactos como DTOs para uso del ChatController (ej: Hello).
+     */
+    public List<ContactInfo> getContactos() {
+        List<Contact> contacts;
+        try {
+            contacts = contactDao.findAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+            contacts = new ArrayList<>();
+        }
+        List<ContactInfo> result = new ArrayList<>();
+        for (Contact c : contacts) {
+            result.add(new ContactInfo(c.getId(), c.getName(), c.getIp()));
+        }
+        return result;
+    }
+
+    /**
+     * Busca el nombre de un contacto por su codigo (ID).
+     * Retorna null si no existe.
+     */
+    public String buscarNombrePorCodigo(String code) {
+        try {
+            Contact c = contactDao.findByCode(code);
+            return c != null ? c.getName() : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public void eliminar(long id) {
         try {
             contactDao.delete(id);

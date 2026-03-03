@@ -40,7 +40,7 @@ public class ChatUI extends JFrame implements IChatView {
     }
 
     private void configurarVentana() {
-        setTitle("Chat P2P - Diseño de Patrones UPB");
+        setTitle("Chat P2P - Patrones de Diseño UPB");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(750, 500);
         setLocationRelativeTo(null);
