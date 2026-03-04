@@ -1,18 +1,18 @@
 package edu.upb.chatupb_v2.controller;
 
-import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
-import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
-import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
-import edu.upb.chatupb_v2.bl.message.Hello;
-import edu.upb.chatupb_v2.bl.message.HelloRechazo;
-import edu.upb.chatupb_v2.bl.message.HelloResponse;
-import edu.upb.chatupb_v2.bl.message.Invitacion;
-import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
-import edu.upb.chatupb_v2.bl.server.ChatEventListener;
-import edu.upb.chatupb_v2.bl.server.Mediador;
-import edu.upb.chatupb_v2.bl.server.SocketClient;
+import edu.upb.chatupb_v2.model.network.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.model.network.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
+import edu.upb.chatupb_v2.model.network.message.Hello;
+import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
+import edu.upb.chatupb_v2.model.network.message.HelloResponse;
+import edu.upb.chatupb_v2.model.network.message.Invitacion;
+import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.ChatEventListener;
+import edu.upb.chatupb_v2.model.network.Mediador;
+import edu.upb.chatupb_v2.model.network.SocketClient;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
-import edu.upb.chatupb_v2.repository.Contact;
+import edu.upb.chatupb_v2.model.entities.Contact;
 import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
 
@@ -132,6 +132,8 @@ public class ChatController implements ChatEventListener {
 
                 agregarConexion(sender.getIp(), inv.getNombre());
                 view.appendChat("<- Has aceptado la invitación de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
+
+                contactController.guardarContactoSiNoExiste(inv.getIdUsuario(), inv.getNombre(), sender.getIp());
             } catch (Exception e) {
                 e.printStackTrace();
             }

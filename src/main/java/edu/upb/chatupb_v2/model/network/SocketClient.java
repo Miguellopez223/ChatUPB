@@ -2,17 +2,17 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package edu.upb.chatupb_v2.bl.server;
+package edu.upb.chatupb_v2.model.network;
 
-import edu.upb.chatupb_v2.bl.message.Message;
-import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
-import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
-import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
-import edu.upb.chatupb_v2.bl.message.Hello;
-import edu.upb.chatupb_v2.bl.message.HelloRechazo;
-import edu.upb.chatupb_v2.bl.message.HelloResponse;
-import edu.upb.chatupb_v2.bl.message.Invitacion;
-import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.Message;
+import edu.upb.chatupb_v2.model.network.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.model.network.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
+import edu.upb.chatupb_v2.model.network.message.Hello;
+import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
+import edu.upb.chatupb_v2.model.network.message.HelloResponse;
+import edu.upb.chatupb_v2.model.network.message.Invitacion;
+import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;

@@ -1,6 +1,6 @@
 package edu.upb.chatupb_v2;
 
-import edu.upb.chatupb_v2.bl.server.SocketClient;
+import edu.upb.chatupb_v2.model.network.SocketClient;
 
 public class ClienteMain {
     public static void main(String[] args) {

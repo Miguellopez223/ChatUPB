@@ -1,9 +1,7 @@
-package edu.upb.chatupb_v2;
+package edu.upb.chatupb_v2.view;
 
 import edu.upb.chatupb_v2.controller.ChatController;
 import edu.upb.chatupb_v2.controller.ContactController;
-import edu.upb.chatupb_v2.view.ContactInfo;
-import edu.upb.chatupb_v2.view.IChatView;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;

@@ -3,9 +3,10 @@
  */
 package edu.upb.chatupb_v2;
 
-import edu.upb.chatupb_v2.bl.server.ChatServer;
-import edu.upb.chatupb_v2.bl.server.Mediador;
-import edu.upb.chatupb_v2.repository.ContactDao;
+import edu.upb.chatupb_v2.model.network.ChatServer;
+import edu.upb.chatupb_v2.model.network.Mediador;
+import edu.upb.chatupb_v2.model.repository.ContactDao;
+import edu.upb.chatupb_v2.view.ChatUI;
 
 public class ChatUPB_V2 {
     public static void main(String[] args) {

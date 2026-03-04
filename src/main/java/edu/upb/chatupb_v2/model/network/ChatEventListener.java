@@ -1,13 +1,13 @@
-package edu.upb.chatupb_v2.bl.server;
+package edu.upb.chatupb_v2.model.network;
 
-import edu.upb.chatupb_v2.bl.message.AceptacionInvitacion;
-import edu.upb.chatupb_v2.bl.message.ConfirmacionMensaje;
-import edu.upb.chatupb_v2.bl.message.EnvioMensaje;
-import edu.upb.chatupb_v2.bl.message.Hello;
-import edu.upb.chatupb_v2.bl.message.HelloRechazo;
-import edu.upb.chatupb_v2.bl.message.HelloResponse;
-import edu.upb.chatupb_v2.bl.message.Invitacion;
-import edu.upb.chatupb_v2.bl.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.AceptacionInvitacion;
+import edu.upb.chatupb_v2.model.network.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
+import edu.upb.chatupb_v2.model.network.message.Hello;
+import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
+import edu.upb.chatupb_v2.model.network.message.HelloResponse;
+import edu.upb.chatupb_v2.model.network.message.Invitacion;
+import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 
 public interface ChatEventListener {
     void onInvitacionRecibida(Invitacion inv, SocketClient sender);
