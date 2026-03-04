@@ -3,8 +3,10 @@
  */
 package edu.upb.chatupb_v2;
 
-import edu.upb.chatupb_v2.bl.server.ChatServer;
-import edu.upb.chatupb_v2.repository.ContactDao;
+import edu.upb.chatupb_v2.model.network.ChatServer;
+import edu.upb.chatupb_v2.model.network.Mediador;
+import edu.upb.chatupb_v2.model.repository.ContactDao;
+import edu.upb.chatupb_v2.view.ChatUI;
 
 public class ChatUPB_V2 {
     public static void main(String[] args) {
@@ -14,6 +16,10 @@ public class ChatUPB_V2 {
 
         ChatUI chatUI = new ChatUI();
 
+        // El controller se suscribe como listener del Mediador.
+        // El Mediador NO baja al controller; el controller sube al Mediador.
+        Mediador.getInstancia().addChatEventListener(chatUI.getChatController());
+
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 chatUI.setVisible(true);
@@ -22,11 +28,14 @@ public class ChatUPB_V2 {
 
         try{
             ChatServer chatServer = new ChatServer();
-            // Le pasamos la vista al servidor para que escuche los eventos
-            chatServer.addChatEventListener(chatUI);
+            // El Mediador es quien escucha los eventos del socket (ChatEventListener)
+            chatServer.addChatEventListener(Mediador.getInstancia());
             chatServer.start();
         }catch(Exception e){
             e.printStackTrace();
         }
+
+        // Enviar Hello (004) a todos los contactos guardados para notificar que estamos en linea
+        chatUI.getChatController().iniciarHello();
     }
 }

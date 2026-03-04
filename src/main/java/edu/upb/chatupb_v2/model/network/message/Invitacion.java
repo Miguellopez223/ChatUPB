@@ -1,4 +1,4 @@
-package edu.upb.chatupb_v2.bl.message;
+package edu.upb.chatupb_v2.model.network.message;
 
 import java.net.Socket;
 import java.util.regex.Pattern;
@@ -27,7 +27,7 @@ public class Invitacion extends Message{
 
     @Override
     public String generarTrama() {
-        return getCodigo() +"|" +idUsuario +"|" +nombre + System.lineSeparator();
+        return getCodigo() +"|" +idUsuario +"|" +nombre;
     }
 
     public String getIdUsuario() {
@@ -42,8 +42,4 @@ public class Invitacion extends Message{
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
-
-
-
-
 }
