@@ -29,7 +29,7 @@ public class ContactController {
         // Convertir entidades del repositorio a DTOs del view
         List<ContactInfo> contactInfos = new ArrayList<>();
         for (Contact c : contacts) {
-            contactInfos.add(new ContactInfo(c.getId(), c.getName(), c.getIp()));
+            contactInfos.add(new ContactInfo(c.getId(), c.getCode(), c.getName(), c.getIp()));
         }
         view.onLoad(contactInfos);
     }
@@ -67,7 +67,7 @@ public class ContactController {
         }
         List<ContactInfo> result = new ArrayList<>();
         for (Contact c : contacts) {
-            result.add(new ContactInfo(c.getId(), c.getName(), c.getIp()));
+            result.add(new ContactInfo(c.getId(), c.getCode(), c.getName(), c.getIp()));
         }
         return result;
     }
@@ -83,6 +83,35 @@ public class ContactController {
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    public String buscarCodigoPorIp(String ip) {
+        try {
+            Contact c = contactDao.findByIp(ip);
+            return c != null ? c.getCode() : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String buscarNombrePorIp(String ip) {
+        try {
+            Contact c = contactDao.findByIp(ip);
+            return c != null ? c.getName() : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public boolean existeContactoPorIp(String ip) {
+        try {
+            return contactDao.findByIp(ip) != null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
     }
 

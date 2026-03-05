@@ -25,4 +25,9 @@ public interface IChatView {
     void limpiarMensaje();
 
     String getMiNombre();
+
+    // Chat por contacto
+    void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
+
+    void appendChatToContact(String ip, String texto);
 }

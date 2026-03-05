@@ -8,6 +8,11 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 public class ChatUI extends JFrame implements IChatView {
@@ -31,6 +36,11 @@ public class ChatUI extends JFrame implements IChatView {
     private final ChatController chatController;
     private List<ContactInfo> contactosEnMemoria = new java.util.ArrayList<>();
 
+    // Chat por contacto
+    private final HashMap<String, JTextArea> chatAreas = new HashMap<>();
+    private String contactoActivo = null;
+    private JScrollPane scrollChatActual;
+
     public ChatUI() {
         this.contactController = new ContactController(this);
         this.chatController = new ChatController(this, this.contactController);
@@ -38,15 +48,15 @@ public class ChatUI extends JFrame implements IChatView {
     }
 
     private void configurarVentana() {
-        setTitle("Chat P2P - Patrones de Diseño UPB");
+        setTitle("Chat P2P - Patrones de Diseno UPB");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(750, 500);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // --- 1. PANEL SUPERIOR: Conexión e Invitaciones ---
+        // --- 1. PANEL SUPERIOR: Conexion e Invitaciones ---
         JPanel panelConexion = new JPanel(new GridLayout(3, 2, 5, 5));
-        panelConexion.setBorder(new TitledBorder("1. Enviar Invitación (Trama 001)"));
+        panelConexion.setBorder(new TitledBorder("1. Enviar Invitacion (Trama 001) - Solo contactos nuevos"));
 
         panelConexion.add(new JLabel("Mi Nombre:"));
         txtMiNombre = new JTextField("Miguel Angel");
@@ -60,16 +70,16 @@ public class ChatUI extends JFrame implements IChatView {
         lblEstado.setForeground(Color.RED);
         panelConexion.add(lblEstado);
 
-        btnEnviarInvitacion = new JButton("Enviar Invitación");
+        btnEnviarInvitacion = new JButton("Enviar Invitacion");
         panelConexion.add(btnEnviarInvitacion);
 
-        // --- 2. PANEL CENTRAL: Área de Chat ---
-        areaChat = new JTextArea();
+        // --- 2. PANEL CENTRAL: Area de Chat (intercambiable por contacto) ---
+        areaChat = new JTextArea("Selecciona un contacto (doble click) para comenzar a chatear.\n");
         areaChat.setEditable(false);
-        JScrollPane scrollChat = new JScrollPane(areaChat);
-        scrollChat.setBorder(new TitledBorder("2. Conversación"));
+        scrollChatActual = new JScrollPane(areaChat);
+        scrollChatActual.setBorder(new TitledBorder("2. Conversacion"));
 
-        // --- 3. PANEL INFERIOR: Selección de destinatario y envío de mensajes ---
+        // --- 3. PANEL INFERIOR: Seleccion de destinatario y envio de mensajes ---
         JPanel panelMensaje = new JPanel(new BorderLayout(5, 5));
         panelMensaje.setBorder(new TitledBorder("3. Enviar Mensaje de Texto"));
 
@@ -91,7 +101,7 @@ public class ChatUI extends JFrame implements IChatView {
 
         // --- 4. PANEL IZQUIERDO: Tabla de Contactos ---
         JPanel panelContactos = new JPanel(new BorderLayout(5, 5));
-        panelContactos.setBorder(new TitledBorder("Contactos"));
+        panelContactos.setBorder(new TitledBorder("Contactos (doble click para chatear)"));
         panelContactos.setPreferredSize(new Dimension(250, 0));
 
         // Modelo de tabla no editable
@@ -122,13 +132,16 @@ public class ChatUI extends JFrame implements IChatView {
         // --- AGREGAR PANELES A LA VENTANA ---
         add(panelContactos, BorderLayout.WEST);
         add(panelConexion, BorderLayout.NORTH);
-        add(scrollChat, BorderLayout.CENTER);
+        add(scrollChatActual, BorderLayout.CENTER);
         add(panelMensaje, BorderLayout.SOUTH);
 
         // --- CONFIGURAR BOTONES ---
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
         btnEliminarContacto.addActionListener(e -> eliminarContacto());
+
+        // Enter para enviar mensaje
+        txtMensaje.addActionListener(e -> enviarMensajeChat());
 
         // Al seleccionar un contacto en la tabla, auto-llenar la IP
         tablaContactos.getSelectionModel().addListSelectionListener(e -> {
@@ -137,6 +150,20 @@ public class ChatUI extends JFrame implements IChatView {
                 if (row >= 0 && row < contactosEnMemoria.size()) {
                     ContactInfo c = contactosEnMemoria.get(row);
                     txtIpDestino.setText(c.getIp());
+                }
+            }
+        });
+
+        // Doble click en contacto abre su chat dedicado con historial
+        tablaContactos.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = tablaContactos.getSelectedRow();
+                    if (row >= 0 && row < contactosEnMemoria.size()) {
+                        ContactInfo contacto = contactosEnMemoria.get(row);
+                        chatController.abrirChat(contacto);
+                    }
                 }
             }
         });
@@ -158,12 +185,23 @@ public class ChatUI extends JFrame implements IChatView {
     }
 
     private void enviarMensajeChat() {
-        String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
-        if (itemSeleccionado == null) return;
-
-        String ip = extraerIp(itemSeleccionado);
         String msg = txtMensaje.getText().trim();
         if (msg.isEmpty()) return;
+
+        // Primero intentar desde el combo box
+        String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
+        String ip = null;
+
+        if (itemSeleccionado != null) {
+            ip = extraerIp(itemSeleccionado);
+        }
+
+        // Si no hay seleccion en combo pero hay contacto activo, usar ese
+        if (ip == null && contactoActivo != null) {
+            ip = contactoActivo;
+        }
+
+        if (ip == null) return;
 
         chatController.enviarMensaje(ip, msg);
     }
@@ -176,8 +214,8 @@ public class ChatUI extends JFrame implements IChatView {
         }
         ContactInfo contacto = contactosEnMemoria.get(row);
         int confirm = JOptionPane.showConfirmDialog(this,
-                "¿Eliminar a " + contacto.getName() + "?",
-                "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
+                "Eliminar a " + contacto.getName() + "?",
+                "Confirmar eliminacion", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
         contactController.eliminar(contacto.getId());
@@ -198,14 +236,15 @@ public class ChatUI extends JFrame implements IChatView {
     @Override
     public void appendChat(String texto) {
         areaChat.append(texto);
+        areaChat.setCaretPosition(areaChat.getDocument().getLength());
     }
 
     @Override
     public boolean mostrarDialogoInvitacion(String nombre, String ip) {
         int respuesta = JOptionPane.showConfirmDialog(
                 this,
-                "El usuario '" + nombre + "' (" + ip + ") te ha enviado una invitación.\n¿Aceptas conectarte?",
-                "Invitación Recibida (Trama 001)",
+                "El usuario '" + nombre + "' (" + ip + ") te ha enviado una invitacion.\nAceptas conectarte?",
+                "Invitacion Recibida (Trama 001)",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.INFORMATION_MESSAGE
         );
@@ -234,9 +273,12 @@ public class ChatUI extends JFrame implements IChatView {
         if (numConexiones == 0) {
             lblEstado.setText("Estado: Sin conexiones activas");
             lblEstado.setForeground(Color.RED);
-            btnEnviarMensaje.setEnabled(false);
+            // Solo deshabilitar si no hay contacto activo seleccionado
+            if (contactoActivo == null) {
+                btnEnviarMensaje.setEnabled(false);
+            }
         } else {
-            lblEstado.setText("Estado: " + numConexiones + " conexión(es) activa(s)");
+            lblEstado.setText("Estado: " + numConexiones + " conexion(es) activa(s)");
             lblEstado.setForeground(new Color(0, 153, 0));
             btnEnviarMensaje.setEnabled(true);
         }
@@ -252,7 +294,7 @@ public class ChatUI extends JFrame implements IChatView {
 
     @Override
     public void actualizarEstadoInvitacion(String ip) {
-        lblEstado.setText("Estado: Invitación enviada a " + ip + "...");
+        lblEstado.setText("Estado: Invitacion enviada a " + ip + "...");
         lblEstado.setForeground(Color.ORANGE);
     }
 
@@ -266,12 +308,82 @@ public class ChatUI extends JFrame implements IChatView {
         return txtMiNombre.getText().trim();
     }
 
+    @Override
+    public void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial) {
+        contactoActivo = contacto.getIp();
+
+        // Obtener o crear el JTextArea para este contacto
+        JTextArea area = chatAreas.get(contacto.getIp());
+        if (area == null) {
+            area = new JTextArea();
+            area.setEditable(false);
+            chatAreas.put(contacto.getIp(), area);
+        }
+
+        // Limpiar y poblar con historial desde la BD
+        area.setText("");
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        for (ChatMessageInfo msg : historial) {
+            String time = sdf.format(new Date(msg.getTimestamp()));
+            String prefix = msg.isMine() ? "Yo" : contacto.getName();
+            String suffix = "";
+            if (msg.isMine() && !msg.isConfirmed()) {
+                suffix = " [pendiente]";
+            }
+            area.append("[" + time + "] " + prefix + ": " + msg.getContent() + suffix + "\n");
+        }
+
+        // Intercambiar el viewport del scroll para mostrar el chat de este contacto
+        scrollChatActual.setViewportView(area);
+        scrollChatActual.setBorder(new TitledBorder("Chat con " + contacto.getName()));
+
+        // Auto-seleccionar en el combo si esta conectado
+        selectDestinatarioPorIp(contacto.getIp());
+
+        // Habilitar boton de envio (incluso si offline, se guarda localmente)
+        btnEnviarMensaje.setEnabled(true);
+
+        // Scroll al final
+        if (area.getDocument().getLength() > 0) {
+            area.setCaretPosition(area.getDocument().getLength());
+        }
+
+        scrollChatActual.revalidate();
+        scrollChatActual.repaint();
+    }
+
+    @Override
+    public void appendChatToContact(String ip, String texto) {
+        JTextArea area = chatAreas.get(ip);
+        if (area == null) {
+            area = new JTextArea();
+            area.setEditable(false);
+            chatAreas.put(ip, area);
+        }
+        area.append(texto);
+
+        // Si este chat esta visible, hacer scroll al final
+        if (ip.equals(contactoActivo)) {
+            area.setCaretPosition(area.getDocument().getLength());
+        }
+    }
+
     // --- Utilidad ---
 
     private String extraerIp(String item) {
         int start = item.lastIndexOf('(');
         int end = item.lastIndexOf(')');
         return item.substring(start + 1, end);
+    }
+
+    private void selectDestinatarioPorIp(String ip) {
+        for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
+            if (extraerIp(modeloDestinatarios.getElementAt(i)).equals(ip)) {
+                comboDestinatarios.setSelectedIndex(i);
+                return;
+            }
+        }
+        // Contacto no esta en combo (offline) - no pasa nada, enviarMensajeChat lo maneja
     }
 
     // --- Renderer personalizado: esfera verde (conectado) / roja (desconectado) ---
@@ -290,7 +402,7 @@ public class ChatUI extends JFrame implements IChatView {
         }
     }
 
-    // Icono que dibuja una esfera (círculo relleno con borde)
+    // Icono que dibuja una esfera (circulo relleno con borde)
     private static class EsferaIcon implements Icon {
         private final Color color;
         private final int size;

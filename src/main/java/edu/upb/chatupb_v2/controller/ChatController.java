@@ -13,6 +13,7 @@ import edu.upb.chatupb_v2.model.network.Mediador;
 import edu.upb.chatupb_v2.model.network.SocketClient;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
 import edu.upb.chatupb_v2.model.entities.Contact;
+import edu.upb.chatupb_v2.view.ChatMessageInfo;
 import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
 
@@ -32,11 +33,15 @@ public class ChatController implements ChatEventListener {
 
     private final IChatView view;
     private final ContactController contactController;
+    private final MessageController messageController;
     private final HashMap<String, String> nombresConectados = new HashMap<>();
+    // Mapa IP -> codigo UUID del contacto (para persistir mensajes por codigo)
+    private final HashMap<String, String> codigosConectados = new HashMap<>();
 
     public ChatController(IChatView view, ContactController contactController) {
         this.view = view;
         this.contactController = contactController;
+        this.messageController = new MessageController();
     }
 
     public boolean isConectado(String ip) {
@@ -50,31 +55,63 @@ public class ChatController implements ChatEventListener {
     // --- Acciones iniciadas por el usuario (desde la UI) ---
 
     public void enviarInvitacion(String ip, String miNombre) {
+        // Si el contacto ya esta guardado, no necesita invitacion
+        if (contactController.existeContactoPorIp(ip)) {
+            view.mostrarError("Este contacto ya esta guardado. Haz doble click sobre el para chatear.");
+            return;
+        }
         if (Mediador.getInstancia().existe(ip)) {
-            view.mostrarError("Ya existe una conexión activa con " + ip);
+            view.mostrarError("Ya existe una conexion activa con " + ip);
             return;
         }
         try {
             Mediador.getInstancia().invitacion(ip, Contact.ME_CODE, miNombre);
             view.actualizarEstadoInvitacion(ip);
-            view.appendChat("-> Invitación (001) enviada a " + ip + "\n");
+            view.appendChat("-> Invitacion (001) enviada a " + ip + "\n");
         } catch (OperationException ex) {
             view.mostrarError(ex.getMessage());
         }
     }
 
     public void enviarMensaje(String ip, String mensaje) {
-        try {
-            String idMensaje = String.valueOf(System.currentTimeMillis());
-            EnvioMensaje envio = new EnvioMensaje(Contact.ME_CODE, idMensaje, mensaje);
-            Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+        long timestamp = System.currentTimeMillis();
+        String idMensaje = String.valueOf(timestamp);
 
-            String nombre = getNombreConectado(ip);
-            view.appendChat("Yo -> " + nombre + ": " + mensaje + "\n");
-            view.limpiarMensaje();
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        // Resolver codigo del contacto para guardar en BD
+        String contactCode = codigosConectados.get(ip);
+        if (contactCode == null) {
+            contactCode = contactController.buscarCodigoPorIp(ip);
         }
+
+        // Guardar en BD siempre (online u offline)
+        if (contactCode != null) {
+            messageController.guardarMensajeEnviado(contactCode, mensaje, timestamp);
+        }
+
+        // Intentar enviar por red si esta conectado
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                EnvioMensaje envio = new EnvioMensaje(Contact.ME_CODE, idMensaje, mensaje);
+                Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+                view.appendChatToContact(ip, "Yo: " + mensaje + "\n");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                view.appendChatToContact(ip, "Yo: " + mensaje + " [error al enviar]\n");
+            }
+        } else {
+            // Contacto offline: mensaje guardado localmente
+            view.appendChatToContact(ip, "Yo: " + mensaje + " [pendiente - contacto sin conexion]\n");
+        }
+        view.limpiarMensaje();
+    }
+
+    /**
+     * Abre el chat dedicado con un contacto, cargando su historial desde la BD.
+     * Llamado cuando el usuario hace doble click en la tabla de contactos.
+     */
+    public void abrirChat(ContactInfo contacto) {
+        List<ChatMessageInfo> historial = messageController.cargarHistorial(contacto.getCode());
+        view.abrirChatConContacto(contacto, historial);
     }
 
     // --- ChatEventListener: eventos reenviados por el Mediador ---
@@ -130,8 +167,9 @@ public class ChatController implements ChatEventListener {
                 AceptacionInvitacion acc = new AceptacionInvitacion(Contact.ME_CODE, miNombre);
                 Mediador.getInstancia().enviarMensaje(sender.getIp(), acc.generarTrama());
 
+                codigosConectados.put(sender.getIp(), inv.getIdUsuario());
                 agregarConexion(sender.getIp(), inv.getNombre());
-                view.appendChat("<- Has aceptado la invitación de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
+                view.appendChat("<- Has aceptado la invitacion de " + inv.getNombre() + " (" + sender.getIp() + ")\n");
 
                 contactController.guardarContactoSiNoExiste(inv.getIdUsuario(), inv.getNombre(), sender.getIp());
             } catch (Exception e) {
@@ -145,27 +183,41 @@ public class ChatController implements ChatEventListener {
                 e.printStackTrace();
             }
             Mediador.getInstancia().eliminar(sender.getIp());
-            view.appendChat("- Rechazaste la invitación de " + inv.getNombre() + "\n");
+            view.appendChat("- Rechazaste la invitacion de " + inv.getNombre() + "\n");
         }
     }
 
     private void procesarAceptacion(AceptacionInvitacion acc, SocketClient sender) {
+        codigosConectados.put(sender.getIp(), acc.getIdUsuario());
         agregarConexion(sender.getIp(), acc.getNombre());
-        view.appendChat("<- " + acc.getNombre() + " (" + sender.getIp() + ") aceptó tu invitación (002). ¡Ya pueden hablar!\n");
+        view.appendChat("<- " + acc.getNombre() + " (" + sender.getIp() + ") acepto tu invitacion (002).\n");
 
         contactController.guardarContactoSiNoExiste(acc.getIdUsuario(), acc.getNombre(), sender.getIp());
     }
 
     private void procesarRechazo(RechazoInvitacion rechazo, SocketClient sender) {
         Mediador.getInstancia().eliminar(sender.getIp());
-        view.appendChat("<- " + sender.getIp() + " rechazó tu invitación (003).\n");
+        view.appendChat("<- " + sender.getIp() + " rechazo tu invitacion (003).\n");
         view.actualizarEstado(nombresConectados.size());
         view.refrescarEstadoContactos();
     }
 
     private void procesarMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
         String nombre = getNombreConectado(sender.getIp());
-        view.appendChat(nombre + ": " + msg.getContenido() + "\n");
+        String contactCode = codigosConectados.get(sender.getIp());
+
+        // Guardar mensaje recibido en BD
+        if (contactCode != null) {
+            long timestamp;
+            try {
+                timestamp = Long.parseLong(msg.getIdMensaje());
+            } catch (NumberFormatException e) {
+                timestamp = System.currentTimeMillis();
+            }
+            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), timestamp);
+        }
+
+        view.appendChatToContact(sender.getIp(), nombre + ": " + msg.getContenido() + "\n");
 
         try {
             ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
@@ -177,7 +229,8 @@ public class ChatController implements ChatEventListener {
 
     private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
         String nombre = getNombreConectado(sender.getIp());
-        view.appendChat("  [✓ Mensaje " + conf.getIdMensaje() + " recibido por " + nombre + "]\n");
+        messageController.marcarConfirmado(conf.getIdMensaje());
+        view.appendChatToContact(sender.getIp(), "  [Mensaje confirmado por " + nombre + "]\n");
     }
 
     // --- Hello (004) y HelloResponse (005) ---
@@ -195,7 +248,7 @@ public class ChatController implements ChatEventListener {
                     Mediador.getInstancia().enviarHello(c.getIp(), Contact.ME_CODE);
                     System.out.println("[Hello] Enviado a " + c.getName() + " (" + c.getIp() + ")");
                 } catch (OperationException e) {
-                    System.out.println("[Hello] " + c.getName() + " (" + c.getIp() + ") no está en línea.");
+                    System.out.println("[Hello] " + c.getName() + " (" + c.getIp() + ") no esta en linea.");
                 }
             }, "Hello-" + c.getIp()).start();
         }
@@ -211,8 +264,9 @@ public class ChatController implements ChatEventListener {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            codigosConectados.put(sender.getIp(), hello.getIdUsuario());
             agregarConexion(sender.getIp(), nombre);
-            view.appendChat("[Hello] " + nombre + " (" + sender.getIp() + ") está en línea.\n");
+            view.appendChat("[Hello] " + nombre + " (" + sender.getIp() + ") esta en linea.\n");
         } else {
             // ID no existe en mi BD: enviar rechazo 006 y eliminar del mapa
             try {
@@ -228,14 +282,15 @@ public class ChatController implements ChatEventListener {
 
     private void procesarHelloRechazo(SocketClient sender) {
         Mediador.getInstancia().eliminar(sender.getIp());
-        System.out.println("[HelloRechazo] " + sender.getIp() + " rechazó nuestro Hello (006).");
+        System.out.println("[HelloRechazo] " + sender.getIp() + " rechazo nuestro Hello (006).");
     }
 
     private void procesarHelloResponse(HelloResponse response, SocketClient sender) {
         String nombre = contactController.buscarNombrePorCodigo(response.getIdUsuario());
         if (nombre != null) {
+            codigosConectados.put(sender.getIp(), response.getIdUsuario());
             agregarConexion(sender.getIp(), nombre);
-            view.appendChat("[Hello] " + nombre + " (" + sender.getIp() + ") respondió. Conectado.\n");
+            view.appendChat("[Hello] " + nombre + " (" + sender.getIp() + ") respondio. Conectado.\n");
         } else {
             System.out.println("[HelloResponse] Respuesta de usuario desconocido: " + response.getIdUsuario());
         }
@@ -243,6 +298,15 @@ public class ChatController implements ChatEventListener {
 
     private void agregarConexion(String ip, String nombre) {
         nombresConectados.put(ip, nombre);
+
+        // Poblar codigosConectados si aun no esta
+        if (!codigosConectados.containsKey(ip)) {
+            String code = contactController.buscarCodigoPorIp(ip);
+            if (code != null) {
+                codigosConectados.put(ip, code);
+            }
+        }
+
         view.agregarConexionUI(ip, nombre);
         view.actualizarEstado(nombresConectados.size());
         view.refrescarEstadoContactos();
