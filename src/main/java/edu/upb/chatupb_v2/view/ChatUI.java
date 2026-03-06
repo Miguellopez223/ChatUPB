@@ -1,7 +1,10 @@
 package edu.upb.chatupb_v2.view;
 
 import edu.upb.chatupb_v2.controller.ChatController;
+import edu.upb.chatupb_v2.controller.CobroController;
 import edu.upb.chatupb_v2.controller.ContactController;
+import edu.upb.chatupb_v2.model.entities.Cobro;
+import edu.upb.chatupb_v2.model.entities.FormaPago;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -98,6 +101,24 @@ public class ChatUI extends JFrame implements IChatView {
 
         panelMensaje.add(panelDestinatario, BorderLayout.NORTH);
         panelMensaje.add(panelInput, BorderLayout.CENTER);
+
+        // ... Código existente del panelInput ...
+        //JPanel panelInput = new JPanel(new BorderLayout(5, 0));
+        txtMensaje = new JTextField();
+        btnEnviarMensaje = new JButton("Enviar");
+        btnEnviarMensaje.setEnabled(false);
+
+        // --- NUEVO BOTÓN DE COBRO ---
+        JButton btnCobrar = new JButton("Cobrar / Solicitar Pago");
+        btnCobrar.addActionListener(e -> mostrarDialogoCobro());
+
+        JPanel panelBotonesDerecha = new JPanel(new GridLayout(1, 2, 5, 0));
+        panelBotonesDerecha.add(btnCobrar);
+        panelBotonesDerecha.add(btnEnviarMensaje);
+
+        panelInput.add(txtMensaje, BorderLayout.CENTER);
+        panelInput.add(panelBotonesDerecha, BorderLayout.EAST);
+        // ... Fin de modificación ...
 
         // --- 4. PANEL IZQUIERDO: Tabla de Contactos ---
         JPanel panelContactos = new JPanel(new BorderLayout(5, 5));
@@ -219,6 +240,66 @@ public class ChatUI extends JFrame implements IChatView {
         if (confirm != JOptionPane.YES_OPTION) return;
 
         contactController.eliminar(contacto.getId());
+    }
+
+    private void mostrarDialogoCobro() {
+        // 1. Mostrar popup para pedir el Monto primero
+        String montoStr = JOptionPane.showInputDialog(
+                this,
+                "Ingrese el monto a cobrar:",
+                "Solicitar Pago",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (montoStr == null || montoStr.trim().isEmpty()) return; // Si cancela
+
+        double monto;
+        try {
+            monto = Double.parseDouble(montoStr);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Por favor ingrese un monto numérico válido.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // 2. Desplegar el popup con los dos botones (Opciones de Pago)
+        Object[] opciones = {"FIAT (BOB)", "CRYPTO"};
+        int seleccion = JOptionPane.showOptionDialog(
+                this,
+                "Seleccione la forma de pago deseada:",
+                "Método de Cobro",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                opciones,
+                opciones[0]
+        );
+
+        if (seleccion == -1) return; // Si cierra la ventana con la X
+
+        // Convertir la selección al Enum
+        FormaPago formaPagoSeleccionada = (seleccion == 0) ? FormaPago.FIAT_BOB : FormaPago.CRYPTO;
+
+        // 3. Llamar al Controlador (Facade) para que gestione la lógica
+        CobroController cobroController = new CobroController();
+        Cobro resultadoCobro = cobroController.procesarCobro(monto, formaPagoSeleccionada);
+
+        // 4. Mostrar el objeto devuelto en la interfaz
+        StringBuilder sb = new StringBuilder();
+        sb.append("--- DETALLE DEL COBRO GENERADO ---\n\n");
+        sb.append("Importe a cobrar: ").append(resultadoCobro.getImporte()).append("\n");
+        sb.append("Código QR generado: ").append(resultadoCobro.getImagenQr()).append("\n");
+
+        // Si es Crypto, la red tendrá un valor, si es FIAT será nulo
+        if (resultadoCobro.getRed() != null) {
+            sb.append("Red Blockchain (Crypto): ").append(resultadoCobro.getRed()).append("\n");
+        } else {
+            sb.append("Red: N/A (Pago Local/FIAT)\n");
+        }
+
+        JOptionPane.showMessageDialog(this, sb.toString(), "Cobro Exitoso", JOptionPane.INFORMATION_MESSAGE);
+
+        // Opcional: Puedes auto-escribir el resultado en el chat
+        // txtMensaje.setText("Te he enviado una solicitud de pago. QR: " + resultadoCobro.getImagenQr());
     }
 
     // --- Implementaciones de IChatView ---
