@@ -4,6 +4,7 @@ import edu.upb.chatupb_v2.model.network.ChatServer;
 import edu.upb.chatupb_v2.model.network.Mediador;
 import edu.upb.chatupb_v2.model.repository.ChatMessageDao;
 import edu.upb.chatupb_v2.model.repository.ContactDao;
+import edu.upb.chatupb_v2.model.repository.UserDao;
 import edu.upb.chatupb_v2.view.ChatUI;
 
 public class ChatUPB_V2 {
@@ -11,18 +12,15 @@ public class ChatUPB_V2 {
 
         // ============================================================
         // 1. INICIALIZACION DE BASE DE DATOS
-        //    - Crear/migrar tablas con schema actualizado
-        //    - contact: id, code (UNIQUE), name, ip + indices
-        //    - message: id, sender_code, receiver_code, content,
-        //               timestamp, confirmed + indices
         // ============================================================
         System.out.println("[DB] Inicializando base de datos...");
+        new UserDao().createTableIfNotExists();
         new ContactDao().createTableIfNotExists();
         new ChatMessageDao().createTableIfNotExists();
         System.out.println("[DB] Base de datos lista.");
 
         // ============================================================
-        // 2. INICIALIZACION DE UI
+        // 2. INICIALIZACION DE UI Y CONTROLLER
         // ============================================================
         ChatUI chatUI = new ChatUI();
 
@@ -30,7 +28,11 @@ public class ChatUPB_V2 {
         // El Mediador NO baja al controller; el controller sube al Mediador.
         Mediador.getInstancia().addChatEventListener(chatUI.getChatController());
 
-        java.awt.EventQueue.invokeLater(() -> chatUI.setVisible(true));
+        // Iniciar la logica de la aplicacion en el hilo de Swing
+        java.awt.EventQueue.invokeLater(() -> {
+            chatUI.setVisible(true);
+            chatUI.getChatController().onAppStart();
+        });
 
         // ============================================================
         // 3. INICIALIZACION DE RED
@@ -43,12 +45,5 @@ public class ChatUPB_V2 {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        // ============================================================
-        // 4. DETECCION DE PRESENCIA
-        //    Enviar Hello (004) a todos los contactos guardados
-        //    para notificar que estamos en linea
-        // ============================================================
-        chatUI.getChatController().iniciarHello();
     }
 }

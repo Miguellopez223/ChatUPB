@@ -18,6 +18,7 @@ public class ChatMessage implements Serializable, Model {
         public static final String CONTENT = "content";
         public static final String TIMESTAMP = "timestamp";
         public static final String CONFIRMED = "confirmed";
+        public static final String USER_ID = "user_id";
     }
 
     private long id;
@@ -26,13 +27,10 @@ public class ChatMessage implements Serializable, Model {
     private String content;
     private long timestamp;
     private boolean confirmed;
+    private long userId;
 
     @Override
     public void setId(long id) {
         this.id = id;
-    }
-
-    public boolean isMine() {
-        return Contact.ME_CODE.equals(senderCode);
     }
 }

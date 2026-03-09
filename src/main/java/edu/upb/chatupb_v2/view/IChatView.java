@@ -1,33 +1,33 @@
 package edu.upb.chatupb_v2.view;
 
+import edu.upb.chatupb_v2.model.entities.User;
+
 import java.util.List;
 
 public interface IChatView {
 
-    // Contactos (recibe DTO, no la entidad del repositorio)
+    // --- User Management ---
+    void setUserList(List<User> users);
+    void showNewUserDialog();
+    void setScreenTitle(String title);
+
+    // --- Contact List ---
     void onLoad(List<ContactInfo> contactos);
 
-    // Chat
+    // --- Chat Area ---
     void appendChat(String texto);
-
-    boolean mostrarDialogoInvitacion(String nombre, String ip);
-
-    void mostrarError(String mensaje);
-
-    void agregarConexionUI(String ip, String nombre);
-
-    void actualizarEstado(int numConexiones);
-
-    void refrescarEstadoContactos();
-
-    void actualizarEstadoInvitacion(String ip);
-
-    void limpiarMensaje();
-
-    String getMiNombre();
-
-    // Chat por contacto
-    void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
-
     void appendChatToContact(String ip, String texto);
+    void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
+    void clearChatHistory();
+
+    // --- UI State & Feedback ---
+    boolean mostrarDialogoInvitacion(String nombre, String ip);
+    void mostrarError(String mensaje);
+    void agregarConexionUI(String ip, String nombre);
+    void limpiarConexionesUI(); // Nuevo metodo para limpiar conexiones visuales
+    void actualizarEstado(int numConexiones);
+    void refrescarEstadoContactos();
+    void actualizarEstadoInvitacion(String ip);
+    void limpiarMensaje();
+    String getMiNombre();
 }

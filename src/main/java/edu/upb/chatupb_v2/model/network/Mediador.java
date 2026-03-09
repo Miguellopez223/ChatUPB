@@ -77,6 +77,20 @@ public class Mediador implements ChatEventListener {
     }
 
     /**
+     * Cierra todas las conexiones activas y limpia el registro.
+     * Se invoca al cambiar de usuario para asegurar un estado de red limpio.
+     */
+    public void cerrarTodasLasConexiones() {
+        System.out.println("[Mediador] Cerrando todas las conexiones activas...");
+        // Iterar sobre una copia para evitar ConcurrentModificationException
+        for (SocketClient cliente : new ArrayList<>(clientes.values())) {
+            cliente.close();
+        }
+        clientes.clear();
+        System.out.println("[Mediador] Todas las conexiones han sido cerradas.");
+    }
+
+    /**
      * Busca un SocketClient por su IP.
      */
     public SocketClient obtener(String ip) {

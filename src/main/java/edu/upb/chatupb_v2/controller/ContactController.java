@@ -1,6 +1,7 @@
 package edu.upb.chatupb_v2.controller;
 
 import edu.upb.chatupb_v2.model.entities.Contact;
+import edu.upb.chatupb_v2.model.entities.User;
 import edu.upb.chatupb_v2.model.repository.ContactDao;
 import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
@@ -11,14 +12,23 @@ import java.util.List;
 public class ContactController {
 
     private final IChatView view;
-    private final ContactDao contactDao;
+    private ContactDao contactDao;
+    private User currentUser;
 
     public ContactController(IChatView view) {
         this.view = view;
-        this.contactDao = new ContactDao();
+        // Inicialmente sin usuario, se setea despues
+        this.contactDao = new ContactDao(0);
+    }
+
+    public void setUsuario(User user) {
+        this.currentUser = user;
+        this.contactDao = new ContactDao(user.getId());
+        onLoad(); // Recargar contactos del nuevo usuario
     }
 
     public void onLoad() {
+        if (currentUser == null) return;
         List<Contact> contacts;
         try {
             contacts = contactDao.findAll();
@@ -35,6 +45,7 @@ public class ContactController {
     }
 
     public void guardarContactoSiNoExiste(String idUsuario, String nombre, String ip) {
+        if (currentUser == null) return;
         try {
             if (!contactDao.existByCode(idUsuario)) {
                 Contact contacto = Contact.builder()
@@ -58,6 +69,7 @@ public class ContactController {
      * Retorna la lista de contactos como DTOs para uso del ChatController (ej: Hello).
      */
     public List<ContactInfo> getContactos() {
+        if (currentUser == null) return new ArrayList<>();
         List<Contact> contacts;
         try {
             contacts = contactDao.findAll();
@@ -77,6 +89,7 @@ public class ContactController {
      * Retorna null si no existe.
      */
     public String buscarNombrePorCodigo(String code) {
+        if (currentUser == null) return null;
         try {
             Contact c = contactDao.findByCode(code);
             return c != null ? c.getName() : null;
@@ -87,6 +100,7 @@ public class ContactController {
     }
 
     public String buscarCodigoPorIp(String ip) {
+        if (currentUser == null) return null;
         try {
             Contact c = contactDao.findByIp(ip);
             return c != null ? c.getCode() : null;
@@ -97,6 +111,7 @@ public class ContactController {
     }
 
     public String buscarNombrePorIp(String ip) {
+        if (currentUser == null) return null;
         try {
             Contact c = contactDao.findByIp(ip);
             return c != null ? c.getName() : null;
@@ -107,6 +122,7 @@ public class ContactController {
     }
 
     public boolean existeContactoPorIp(String ip) {
+        if (currentUser == null) return false;
         try {
             return contactDao.findByIp(ip) != null;
         } catch (Exception e) {
@@ -116,6 +132,7 @@ public class ContactController {
     }
 
     public void eliminar(long id) {
+        if (currentUser == null) return;
         try {
             contactDao.delete(id);
             onLoad();

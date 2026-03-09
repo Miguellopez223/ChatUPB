@@ -9,83 +9,60 @@ import java.util.List;
 
 /**
  * DAO para la tabla 'contact'.
- *
- * Schema:
- *   CREATE TABLE contact (
- *       id   INTEGER PRIMARY KEY AUTOINCREMENT,
- *       code TEXT NOT NULL UNIQUE,
- *       name TEXT NOT NULL,
- *       ip   TEXT NOT NULL
- *   );
- *   CREATE INDEX IF NOT EXISTS idx_contact_code ON contact(code);
- *   CREATE INDEX IF NOT EXISTS idx_contact_ip   ON contact(ip);
  */
 @Slf4j
 public class ContactDao {
 
     private DaoHelper<Contact> helper;
+    private long currentUserId;
 
     public ContactDao() {
-        helper = new DaoHelper<>();
+        this.helper = new DaoHelper<>();
+        this.currentUserId = 0;
     }
 
-    /**
-     * Crea la tabla 'contact' si no existe, con restriccion UNIQUE en code.
-     * Si la tabla ya existe con un schema viejo (sin UNIQUE), la migra.
-     * Tambien crea indices para code e ip.
-     */
+    public ContactDao(long currentUserId) {
+        this.helper = new DaoHelper<>();
+        this.currentUserId = currentUserId;
+    }
+
     public void createTableIfNotExists() {
         try (Connection conn = ConnectionDB.getInstance().getConection();
              Statement st = conn.createStatement()) {
 
             // Verificar si la tabla existe
             boolean tablaExiste = false;
-            boolean tieneUnique = false;
             try (ResultSet rs = conn.getMetaData().getTables(null, null, "contact", null)) {
                 if (rs.next()) {
                     tablaExiste = true;
                 }
             }
 
-            if (tablaExiste) {
-                // Verificar si tiene UNIQUE en code revisando los indices
-                try (ResultSet rs = st.executeQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='contact'")) {
-                    if (rs.next()) {
-                        String createSql = rs.getString("sql");
-                        if (createSql != null && createSql.toUpperCase().contains("UNIQUE")) {
-                            tieneUnique = true;
-                        }
-                    }
-                }
-
-                if (!tieneUnique) {
-                    // Migrar: recrear tabla con UNIQUE
-                    log.info("Migrando tabla contact: agregando UNIQUE a code...");
-                    st.execute("ALTER TABLE contact RENAME TO contact_old");
-                    st.execute("CREATE TABLE contact ("
-                            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                            + "code TEXT NOT NULL UNIQUE, "
-                            + "name TEXT NOT NULL, "
-                            + "ip TEXT NOT NULL"
-                            + ")");
-                    st.execute("INSERT OR IGNORE INTO contact(id, code, name, ip) "
-                            + "SELECT id, code, name, ip FROM contact_old");
-                    st.execute("DROP TABLE contact_old");
-                    log.info("Migracion de tabla contact completada.");
-                }
-            } else {
-                // Crear tabla nueva desde cero
+            if (!tablaExiste) {
+                // Crear tabla nueva
                 st.execute("CREATE TABLE contact ("
                         + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                         + "code TEXT NOT NULL UNIQUE, "
                         + "name TEXT NOT NULL, "
-                        + "ip TEXT NOT NULL"
+                        + "ip TEXT NOT NULL, "
+                        + "user_id INTEGER NOT NULL DEFAULT 0"
                         + ")");
+            } else {
+                // Verificar si tiene user_id
+                boolean hasUserId = false;
+                try (ResultSet rs = conn.getMetaData().getColumns(null, null, "contact", "user_id")) {
+                    if (rs.next()) hasUserId = true;
+                }
+                if (!hasUserId) {
+                    log.info("Agregando columna user_id a tabla contact...");
+                    st.execute("ALTER TABLE contact ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
+                }
             }
 
             // Crear indices si no existen
             st.execute("CREATE INDEX IF NOT EXISTS idx_contact_code ON contact(code)");
             st.execute("CREATE INDEX IF NOT EXISTS idx_contact_ip ON contact(ip)");
+            st.execute("CREATE INDEX IF NOT EXISTS idx_contact_user_id ON contact(user_id)");
 
         } catch (SQLException e) {
             log.error("Error al crear/migrar tabla contact: {}", e.getMessage());
@@ -108,75 +85,89 @@ public class ContactDao {
         if (existColumn(result, Contact.Column.IP)) {
             contact.setIp(result.getString(Contact.Column.IP));
         }
+        if (existColumn(result, Contact.Column.USER_ID)) {
+            contact.setUserId(result.getLong(Contact.Column.USER_ID));
+        }
         return contact;
     };
 
-    /**
-     * Verifica si una columna existe en el ResultSet actual.
-     * Usado por todos los DAOs para lectura defensiva de columnas.
-     */
     public static boolean existColumn(ResultSet result, String columnName) {
         try {
             result.findColumn(columnName);
             return true;
         } catch (SQLException sqlex) {
-            // Columna no existe en el ResultSet
+            return false;
         }
-        return false;
     }
 
     // --- CRUD ---
 
     public void save(Contact contact) throws Exception {
-        String query = "INSERT INTO contact(code, name, ip) VALUES (?, ?, ?)";
+        contact.setUserId(currentUserId);
+        String query = "INSERT INTO contact(code, name, ip, user_id) VALUES (?, ?, ?, ?)";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, contact.getCode());
             pst.setString(2, contact.getName());
             pst.setString(3, contact.getIp());
+            pst.setLong(4, contact.getUserId());
         };
         helper.insert(query, params, contact);
     }
 
     public void update(Contact contact) throws Exception {
-        String query = "UPDATE contact SET ip = ?, name = ? WHERE code = ?";
+        String query = "UPDATE contact SET ip = ?, name = ? WHERE code = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, contact.getIp());
             pst.setString(2, contact.getName());
             pst.setString(3, contact.getCode());
+            pst.setLong(4, currentUserId);
         };
         helper.update(query, params);
     }
 
     public void delete(long id) throws ConnectException, SQLException {
-        String query = "DELETE FROM contact WHERE id = ?";
-        DaoHelper.QueryParameters params = pst -> pst.setLong(1, id);
+        String query = "DELETE FROM contact WHERE id = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setLong(1, id);
+            pst.setLong(2, currentUserId);
+        };
         helper.update(query, params);
     }
 
     // --- Queries ---
 
     public List<Contact> findAll() throws ConnectException, SQLException {
-        String query = "SELECT * FROM contact ORDER BY name ASC";
-        return helper.executeQuery(query, resultReader);
+        String query = "SELECT * FROM contact WHERE user_id = ? ORDER BY name ASC";
+        DaoHelper.QueryParameters params = pst -> pst.setLong(1, currentUserId);
+        return helper.executeQuery(query, params, resultReader);
     }
 
     public Contact findByCode(String code) throws ConnectException, SQLException {
-        String query = "SELECT * FROM contact WHERE code = ?";
-        DaoHelper.QueryParameters params = pst -> pst.setString(1, code);
+        String query = "SELECT * FROM contact WHERE code = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, code);
+            pst.setLong(2, currentUserId);
+        };
         List<Contact> list = helper.executeQuery(query, params, resultReader);
         return list.isEmpty() ? null : list.get(0);
     }
 
     public Contact findByIp(String ip) throws ConnectException, SQLException {
-        String query = "SELECT * FROM contact WHERE ip = ?";
-        DaoHelper.QueryParameters params = pst -> pst.setString(1, ip);
+        String query = "SELECT * FROM contact WHERE ip = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, ip);
+            pst.setLong(2, currentUserId);
+        };
         List<Contact> list = helper.executeQuery(query, params, resultReader);
         return list.isEmpty() ? null : list.get(0);
     }
 
     public boolean existByCode(String code) throws ConnectException, SQLException {
-        String query = "SELECT count(*) FROM contact WHERE code = ?";
-        DaoHelper.QueryParameters params = pst -> pst.setString(1, code);
+        String query = "SELECT count(*) FROM contact WHERE code = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, code);
+            pst.setLong(2, currentUserId);
+        };
         return helper.executeQueryCount(query, params) >= 1;
     }
 }
