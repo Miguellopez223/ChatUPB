@@ -34,6 +34,7 @@ public class ChatController implements ChatEventListener {
     private final IChatView view;
     private final ContactController contactController;
     private final MessageController messageController;
+    private final AnalizadorController analizadorController; // PREGUNTA 4
     private final HashMap<String, String> nombresConectados = new HashMap<>();
     // Mapa IP -> codigo UUID del contacto (para persistir mensajes por codigo)
     private final HashMap<String, String> codigosConectados = new HashMap<>();
@@ -42,6 +43,7 @@ public class ChatController implements ChatEventListener {
         this.view = view;
         this.contactController = contactController;
         this.messageController = new MessageController();
+        this.analizadorController = new AnalizadorController(); // PREGUNTA 4
     }
 
     public boolean isConectado(String ip) {
@@ -74,6 +76,9 @@ public class ChatController implements ChatEventListener {
     }
 
     public void enviarMensaje(String ip, String mensaje) {
+        // PREGUNTA 4: Analizar texto: resolver sumas y ofuscar palabras vulgares
+        mensaje = analizadorController.procesarTexto(mensaje);
+
         long timestamp = System.currentTimeMillis();
         String idMensaje = String.valueOf(timestamp);
 
@@ -206,6 +211,9 @@ public class ChatController implements ChatEventListener {
         String nombre = getNombreConectado(sender.getIp());
         String contactCode = codigosConectados.get(sender.getIp());
 
+        //  PREGUNTA 4: Analizar texto recibido: resolver sumas y ofuscar palabras vulgares
+        String contenidoProcesado = analizadorController.procesarTexto(msg.getContenido());
+
         // Guardar mensaje recibido en BD
         if (contactCode != null) {
             long timestamp;
@@ -214,10 +222,10 @@ public class ChatController implements ChatEventListener {
             } catch (NumberFormatException e) {
                 timestamp = System.currentTimeMillis();
             }
-            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), timestamp);
+            messageController.guardarMensajeRecibido(contactCode, contenidoProcesado, timestamp); //PREGUNTA 4
         }
 
-        view.appendChatToContact(sender.getIp(), nombre + ": " + msg.getContenido() + "\n");
+        view.appendChatToContact(sender.getIp(), nombre + ": " + contenidoProcesado + "\n"); //PREGUNTA 4
 
         try {
             ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
