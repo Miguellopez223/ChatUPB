@@ -8,6 +8,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.CompartirContacto; // PREGUNTA 5
 import edu.upb.chatupb_v2.controller.exception.OperationException;
 
 import java.io.IOException;
@@ -229,6 +230,14 @@ public class Mediador implements ChatEventListener {
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         for (ChatEventListener listener : listeners) {
             listener.onConfirmacionRecibida(conf, sender);
+        }
+    }
+
+    //PREGUNTA 5
+    @Override
+    public void onContactoCompartidoRecibido(CompartirContacto contacto, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onContactoCompartidoRecibido(contacto, sender);
         }
     }
 }

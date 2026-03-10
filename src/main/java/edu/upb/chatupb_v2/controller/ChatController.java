@@ -8,6 +8,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.CompartirContacto;
 import edu.upb.chatupb_v2.model.network.ChatEventListener;
 import edu.upb.chatupb_v2.model.network.Mediador;
 import edu.upb.chatupb_v2.model.network.SocketClient;
@@ -160,6 +161,13 @@ public class ChatController implements ChatEventListener {
     @Override
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         SwingUtilities.invokeLater(() -> procesarConfirmacion(conf, sender));
+    }
+
+
+    // PREGUNTA 5
+    @Override
+    public void onContactoCompartidoRecibido(CompartirContacto contacto, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarContactoCompartido(contacto, sender));
     }
 
     // --- Procesamiento de eventos (ejecutado en el hilo de Swing) ---
@@ -318,5 +326,31 @@ public class ChatController implements ChatEventListener {
         view.agregarConexionUI(ip, nombre);
         view.actualizarEstado(nombresConectados.size());
         view.refrescarEstadoContactos();
+    }
+
+    // PREGUNTA 5
+    // --- Compartir contacto (020) ---
+
+    //Envia un contacto a un amigo conectado.
+     //Trama: 020|ID_USUARIO|NOMBRE|IP
+    public void enviarContacto(String ipDestino, String idContacto, String nombreContacto, String ipContacto) {
+        if (nombresConectados.containsKey(ipDestino) && Mediador.getInstancia().existe(ipDestino)) {
+            try {
+                CompartirContacto compartir = new CompartirContacto(idContacto, nombreContacto, ipContacto);
+                Mediador.getInstancia().enviarMensaje(ipDestino, compartir.generarTrama());
+                view.appendChat("-> Contacto " + nombreContacto + " compartido con " + getNombreConectado(ipDestino) + "\n");
+            } catch (Exception e) {
+                e.printStackTrace();
+                view.mostrarError("Error al compartir el contacto");
+            }
+        } else {
+            view.mostrarError("El destinatario no esta conectado");
+        }
+    }
+
+    // Al recibir un contacto compartido (020), solo se guarda en la base de datos.
+    private void procesarContactoCompartido(CompartirContacto contacto, SocketClient sender) {
+        contactController.guardarContactoSiNoExiste(contacto.getIdUsuario(), contacto.getNombre(), contacto.getIp());
+        System.out.println("[020] Contacto recibido y guardado: " + contacto.getNombre() + " (" + contacto.getIp() + ")");
     }
 }

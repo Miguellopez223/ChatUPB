@@ -13,9 +13,11 @@ public class AnalizadorMatematicoImpl implements IAnalizadorTexto {
         for (int i = 0; i < palabras.length; i++) {
             String palabra = palabras[i];
 
-            // Si la palabra contiene "+" es una suma como "2+2"
-            if (palabra.contains("+")) {
-                String[] partes = palabra.split("\\+");
+            // Si la palabra contiene "+" y termina con "=" es una suma como "2+2="
+            if (palabra.contains("+") && palabra.endsWith("=")) {
+                // Quitar el "=" del final para obtener solo la expresion
+                String expresion = palabra.substring(0, palabra.length() - 1);
+                String[] partes = expresion.split("\\+");
                 boolean esSuma = true;
                 int suma = 0;
 
@@ -28,9 +30,9 @@ public class AnalizadorMatematicoImpl implements IAnalizadorTexto {
                     }
                 }
 
-                // Solo reemplazar si tiene al menos 2 numeros y todos eran validos
+                // Conservar la expresion original y agregar el resultado: "2+2=4"
                 if (esSuma && partes.length >= 2) {
-                    palabra = String.valueOf(suma);
+                    palabra = expresion + "=" + suma;
                 }
             }
 

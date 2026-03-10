@@ -148,7 +148,13 @@ public class ChatUI extends JFrame implements IChatView {
         panelContactos.add(scrollContactos, BorderLayout.CENTER);
 
         JButton btnEliminarContacto = new JButton("Eliminar");
-        panelContactos.add(btnEliminarContacto, BorderLayout.SOUTH);
+        // PREGUNTA 5
+        JButton btnCompartirContacto = new JButton("Compartir Contacto");
+
+        JPanel panelBotonesContactos = new JPanel(new GridLayout(1, 2, 5, 0));
+        panelBotonesContactos.add(btnEliminarContacto);
+        panelBotonesContactos.add(btnCompartirContacto);
+        panelContactos.add(panelBotonesContactos, BorderLayout.SOUTH);
 
         // --- AGREGAR PANELES A LA VENTANA ---
         add(panelContactos, BorderLayout.WEST);
@@ -160,6 +166,7 @@ public class ChatUI extends JFrame implements IChatView {
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
         btnEliminarContacto.addActionListener(e -> eliminarContacto());
+        btnCompartirContacto.addActionListener(e -> compartirContacto()); // PREGUNTA 5
 
         // Enter para enviar mensaje
         txtMensaje.addActionListener(e -> enviarMensajeChat());
@@ -240,6 +247,50 @@ public class ChatUI extends JFrame implements IChatView {
         if (confirm != JOptionPane.YES_OPTION) return;
 
         contactController.eliminar(contacto.getId());
+    }
+
+    // PREGUNTA 5
+    private void compartirContacto() {
+        // 1. Verificar que hay un contacto seleccionado en la tabla
+        int row = tablaContactos.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Selecciona un contacto de la tabla para compartir.");
+            return;
+        }
+        ContactInfo contactoACompartir = contactosEnMemoria.get(row);
+
+        // 2. Verificar que hay alguien conectado en el combo para enviarselo
+        if (modeloDestinatarios.getSize() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay amigos conectados para enviar el contacto.");
+            return;
+        }
+
+        // 3. Preguntar a quien enviarlo (mostrar lista de conectados)
+        String[] conectados = new String[modeloDestinatarios.getSize()];
+        for (int i = 0; i < modeloDestinatarios.getSize(); i++) {
+            conectados[i] = modeloDestinatarios.getElementAt(i);
+        }
+
+        String seleccion = (String) JOptionPane.showInputDialog(
+                this,
+                "Enviar contacto '" + contactoACompartir.getName() + "' a:",
+                "Compartir Contacto (Trama 020)",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                conectados,
+                conectados[0]
+        );
+
+        if (seleccion == null) return; // Cancelo
+
+        // 4. Extraer la IP del destinatario y enviar
+        String ipDestino = extraerIp(seleccion);
+        chatController.enviarContacto(
+                ipDestino,
+                contactoACompartir.getCode(),
+                contactoACompartir.getName(),
+                contactoACompartir.getIp()
+        );
     }
 
     private void mostrarDialogoCobro() {

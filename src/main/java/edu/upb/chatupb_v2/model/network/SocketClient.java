@@ -13,6 +13,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.CompartirContacto; // PREGUNTA 5
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -120,6 +121,14 @@ public class SocketClient extends Thread {
                         // Avisamos a todos los listeners que el mensaje fue confirmado
                         for (ChatEventListener listener : listeners) {
                             listener.onConfirmacionRecibida(conf, this);
+                        }
+                        break;
+                    }
+                    // PREGUNTA 5
+                    case "020": {
+                        CompartirContacto contacto = CompartirContacto.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onContactoCompartidoRecibido(contacto, this);
                         }
                         break;
                     }

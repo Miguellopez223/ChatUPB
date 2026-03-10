@@ -8,6 +8,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.CompartirContacto;
 
 public interface ChatEventListener {
     void onInvitacionRecibida(Invitacion inv, SocketClient sender);
@@ -18,4 +19,5 @@ public interface ChatEventListener {
     void onHelloRechazoRecibido(HelloRechazo rechazo, SocketClient sender);
     void onMensajeRecibido(EnvioMensaje msg, SocketClient sender);
     void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender);
+    void onContactoCompartidoRecibido(CompartirContacto contacto, SocketClient sender); // PREGUNTA 5
 }
