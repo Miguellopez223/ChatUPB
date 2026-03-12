@@ -5,6 +5,7 @@ import edu.upb.chatupb_v2.model.network.ChatEventListener;
 import edu.upb.chatupb_v2.model.network.Mediador;
 import edu.upb.chatupb_v2.model.network.SocketClient;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
+import edu.upb.chatupb_v2.model.entities.ChatMessage;
 import edu.upb.chatupb_v2.model.entities.User;
 import edu.upb.chatupb_v2.model.repository.UserDao;
 import edu.upb.chatupb_v2.view.ChatMessageInfo;
@@ -138,19 +139,36 @@ public class ChatController implements ChatEventListener {
             try {
                 EnvioMensaje envio = new EnvioMensaje(currentUser.getCode(), idMensaje, mensaje);
                 Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
-                view.appendChatToContact(ip, "Yo: " + mensaje + "\n");
+                view.appendMensajeToContact(ip, mensaje, true, idMensaje);
             } catch (Exception ex) {
                 ex.printStackTrace();
-                view.appendChatToContact(ip, "Yo: " + mensaje + " [error al enviar]\n");
+                view.appendChatToContact(ip, "[Error al enviar mensaje]\n");
             }
         } else {
-            view.appendChatToContact(ip, "Yo: " + mensaje + " [pendiente - contacto sin conexion]\n");
+            view.appendChatToContact(ip, "[Pendiente - contacto sin conexion]\n");
         }
         view.limpiarMensaje();
     }
 
     public void abrirChat(ContactInfo contacto) {
         if (currentUser == null) return;
+
+        // Enviar 008 para mensajes recibidos no confirmados (el usuario esta "viendo" el chat)
+        List<ChatMessage> noConfirmados = messageController.obtenerNoConfirmadosRecibidos(contacto.getCode());
+        if (!noConfirmados.isEmpty() && nombresConectados.containsKey(contacto.getIp())
+                && Mediador.getInstancia().existe(contacto.getIp())) {
+            for (ChatMessage msg : noConfirmados) {
+                try {
+                    ConfirmacionMensaje conf = new ConfirmacionMensaje(String.valueOf(msg.getTimestamp()));
+                    Mediador.getInstancia().enviarMensaje(contacto.getIp(), conf.generarTrama());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        // Marcar todos los recibidos como vistos en la BD
+        messageController.marcarRecibidosComoVistos(contacto.getCode());
+
         List<ChatMessageInfo> historial = messageController.cargarHistorial(contacto.getCode());
         view.abrirChatConContacto(contacto, historial);
     }
@@ -240,7 +258,6 @@ public class ChatController implements ChatEventListener {
     }
 
     private void procesarMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
-        String nombre = getNombreConectado(sender.getIp());
         String contactCode = codigosConectados.get(sender.getIp());
 
         if (contactCode != null) {
@@ -253,20 +270,24 @@ public class ChatController implements ChatEventListener {
             messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), timestamp);
         }
 
-        view.appendChatToContact(sender.getIp(), nombre + ": " + msg.getContenido() + "\n");
+        view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, null);
 
-        try {
-            ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
-            Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Si el usuario ya tiene abierto el chat de este contacto, enviar 008 automaticamente
+        if (sender.getIp().equals(view.getContactoActivo())) {
+            try {
+                ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
+                Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
+                messageController.marcarConfirmado(msg.getIdMensaje());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
+        // Si no esta en el chat, el 008 se enviara cuando abra el chat (en abrirChat)
     }
 
     private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
-        String nombre = getNombreConectado(sender.getIp());
         messageController.marcarConfirmado(conf.getIdMensaje());
-        view.appendChatToContact(sender.getIp(), "  [Mensaje confirmado por " + nombre + "]\n");
+        view.actualizarCheckMensaje(sender.getIp(), conf.getIdMensaje());
     }
 
     public void iniciarHello() {

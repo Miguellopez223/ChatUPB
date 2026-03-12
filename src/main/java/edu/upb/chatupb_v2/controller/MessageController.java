@@ -47,7 +47,7 @@ public class MessageController {
                 .receiverCode(currentUser.getCode())
                 .content(content)
                 .timestamp(timestamp)
-                .confirmed(true)
+                .confirmed(false) // No confirmado hasta que el usuario abra el chat y se envie 008
                 .build();
         try {
             messageDao.save(msg);
@@ -81,6 +81,31 @@ public class MessageController {
         if (currentUser == null) return;
         try {
             messageDao.markConfirmed(idMensaje);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Obtiene mensajes recibidos de un contacto que aun no fueron confirmados (no se envio 008).
+     */
+    public List<ChatMessage> obtenerNoConfirmadosRecibidos(String contactCode) {
+        if (currentUser == null) return new ArrayList<>();
+        try {
+            return messageDao.findUnconfirmedReceived(currentUser.getCode(), contactCode);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Marca todos los mensajes recibidos de un contacto como vistos/confirmados.
+     */
+    public void marcarRecibidosComoVistos(String contactCode) {
+        if (currentUser == null) return;
+        try {
+            messageDao.markReceivedAsConfirmed(currentUser.getCode(), contactCode);
         } catch (Exception e) {
             e.printStackTrace();
         }

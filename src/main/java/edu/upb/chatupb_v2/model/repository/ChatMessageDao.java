@@ -146,6 +146,39 @@ public class ChatMessageDao {
         helper.update(query, params);
     }
 
+    /**
+     * Busca mensajes recibidos que aun no fueron confirmados (no se envio 008).
+     */
+    public List<ChatMessage> findUnconfirmedReceived(String myCode, String contactCode)
+            throws ConnectException, SQLException {
+        String query = "SELECT * FROM message WHERE "
+                + "sender_code = ? AND receiver_code = ? "
+                + "AND confirmed = 0 AND user_id = ? "
+                + "ORDER BY timestamp ASC";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, contactCode);
+            pst.setString(2, myCode);
+            pst.setLong(3, currentUserId);
+        };
+        return helper.executeQuery(query, params, resultReader);
+    }
+
+    /**
+     * Marca todos los mensajes recibidos de un contacto como confirmados (ya se envio 008).
+     */
+    public void markReceivedAsConfirmed(String myCode, String contactCode)
+            throws ConnectException, SQLException {
+        String query = "UPDATE message SET confirmed = 1 WHERE "
+                + "sender_code = ? AND receiver_code = ? "
+                + "AND confirmed = 0 AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, contactCode);
+            pst.setString(2, myCode);
+            pst.setLong(3, currentUserId);
+        };
+        helper.update(query, params);
+    }
+
     public void deleteConversation(String myCode, String contactCode)
             throws ConnectException, SQLException {
         String query = "DELETE FROM message WHERE "
