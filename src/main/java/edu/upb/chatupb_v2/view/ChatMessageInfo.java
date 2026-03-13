@@ -10,14 +10,21 @@ public class ChatMessageInfo {
     private final long timestamp;
     private final boolean confirmed;
     private final boolean mine;
+    private final boolean image;
 
     public ChatMessageInfo(String senderCode, String content, long timestamp,
                            boolean confirmed, boolean mine) {
+        this(senderCode, content, timestamp, confirmed, mine, false);
+    }
+
+    public ChatMessageInfo(String senderCode, String content, long timestamp,
+                           boolean confirmed, boolean mine, boolean image) {
         this.senderCode = senderCode;
         this.content = content;
         this.timestamp = timestamp;
         this.confirmed = confirmed;
         this.mine = mine;
+        this.image = image;
     }
 
     public String getSenderCode() {
@@ -38,5 +45,9 @@ public class ChatMessageInfo {
 
     public boolean isMine() {
         return mine;
+    }
+
+    public boolean isImage() {
+        return image;
     }
 }

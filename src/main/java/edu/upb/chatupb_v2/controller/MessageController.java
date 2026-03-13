@@ -63,12 +63,15 @@ public class MessageController {
         try {
             List<ChatMessage> messages = messageDao.findConversation(currentUser.getCode(), contactCode);
             for (ChatMessage m : messages) {
+                boolean isImage = m.getContent().startsWith("[IMG]");
+                String content = isImage ? m.getContent().substring(5) : m.getContent();
                 result.add(new ChatMessageInfo(
                         m.getSenderCode(),
-                        m.getContent(),
+                        content,
                         m.getTimestamp(),
                         m.isConfirmed(),
-                        m.getSenderCode().equals(currentUser.getCode())
+                        m.getSenderCode().equals(currentUser.getCode()),
+                        isImage
                 ));
             }
         } catch (Exception e) {

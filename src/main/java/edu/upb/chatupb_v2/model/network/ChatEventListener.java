@@ -6,6 +6,7 @@ import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
 import edu.upb.chatupb_v2.model.network.message.Hello;
 import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
+import edu.upb.chatupb_v2.model.network.message.EnvioImagen;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 
@@ -18,4 +19,5 @@ public interface ChatEventListener {
     void onHelloRechazoRecibido(HelloRechazo rechazo, SocketClient sender);
     void onMensajeRecibido(EnvioMensaje msg, SocketClient sender);
     void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender);
+    void onImagenRecibida(EnvioImagen img, SocketClient sender);
 }

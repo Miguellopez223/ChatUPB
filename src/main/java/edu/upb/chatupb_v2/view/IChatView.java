@@ -18,6 +18,7 @@ public interface IChatView {
     void appendChat(String texto);
     void appendChatToContact(String ip, String texto);
     void appendMensajeToContact(String ip, String content, boolean isMine, String idMensaje);
+    void appendImagenToContact(String ip, String base64, boolean isMine, String idMensaje);
     void actualizarCheckMensaje(String ip, String idMensaje);
     void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
     void clearChatHistory();

@@ -2,6 +2,7 @@ package edu.upb.chatupb_v2.model.network;
 
 import edu.upb.chatupb_v2.model.network.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.model.network.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.model.network.message.EnvioImagen;
 import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
 import edu.upb.chatupb_v2.model.network.message.Hello;
 import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
@@ -243,6 +244,13 @@ public class Mediador implements ChatEventListener {
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         for (ChatEventListener listener : listeners) {
             listener.onConfirmacionRecibida(conf, sender);
+        }
+    }
+
+    @Override
+    public void onImagenRecibida(EnvioImagen img, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onImagenRecibida(img, sender);
         }
     }
 }

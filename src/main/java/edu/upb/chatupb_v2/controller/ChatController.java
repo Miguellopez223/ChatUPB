@@ -1,6 +1,7 @@
 package edu.upb.chatupb_v2.controller;
 
 import edu.upb.chatupb_v2.model.network.message.*;
+import java.util.Base64;
 import edu.upb.chatupb_v2.model.network.ChatEventListener;
 import edu.upb.chatupb_v2.model.network.Mediador;
 import edu.upb.chatupb_v2.model.network.SocketClient;
@@ -138,7 +139,8 @@ public class ChatController implements ChatEventListener {
         if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
             try {
                 EnvioMensaje envio = new EnvioMensaje(currentUser.getCode(), idMensaje, mensaje);
-                Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+                // Patron Command: ejecutar el comando de envio de mensaje
+                envio.execute(Mediador.getInstancia().obtener(ip));
                 view.appendMensajeToContact(ip, mensaje, true, idMensaje);
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -148,6 +150,41 @@ public class ChatController implements ChatEventListener {
             view.appendChatToContact(ip, "[Pendiente - contacto sin conexion]\n");
         }
         view.limpiarMensaje();
+    }
+
+    /**
+     * Envia una imagen pequena codificada en Base64 usando la trama 021.
+     * Patron Command: se crea el objeto EnvioImagen y se ejecuta con execute().
+     */
+    public void enviarImagen(String ip, byte[] imageBytes) {
+        if (currentUser == null) return;
+        long timestamp = System.currentTimeMillis();
+        String idMensaje = String.valueOf(timestamp);
+        String base64 = Base64.getEncoder().encodeToString(imageBytes);
+
+        String contactCode = codigosConectados.get(ip);
+        if (contactCode == null) {
+            contactCode = contactController.buscarCodigoPorIp(ip);
+        }
+
+        if (contactCode != null) {
+            // Guardar en BD con prefijo [IMG] para distinguir de texto
+            messageController.guardarMensajeEnviado(contactCode, "[IMG]" + base64, timestamp);
+        }
+
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                EnvioImagen envio = new EnvioImagen(currentUser.getCode(), idMensaje, base64);
+                // Patron Command: ejecutar el comando de envio de imagen
+                envio.execute(Mediador.getInstancia().obtener(ip));
+                view.appendImagenToContact(ip, base64, true, idMensaje);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                view.appendChatToContact(ip, "[Error al enviar imagen]\n");
+            }
+        } else {
+            view.appendChatToContact(ip, "[Pendiente - contacto sin conexion]\n");
+        }
     }
 
     public void abrirChat(ContactInfo contacto) {
@@ -211,6 +248,11 @@ public class ChatController implements ChatEventListener {
     @Override
     public void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender) {
         SwingUtilities.invokeLater(() -> procesarConfirmacion(conf, sender));
+    }
+
+    @Override
+    public void onImagenRecibida(EnvioImagen img, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarImagenRecibida(img, sender));
     }
 
     private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
@@ -288,6 +330,33 @@ public class ChatController implements ChatEventListener {
     private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
         messageController.marcarConfirmado(conf.getIdMensaje());
         view.actualizarCheckMensaje(sender.getIp(), conf.getIdMensaje());
+    }
+
+    private void procesarImagenRecibida(EnvioImagen img, SocketClient sender) {
+        String contactCode = codigosConectados.get(sender.getIp());
+
+        if (contactCode != null) {
+            long timestamp;
+            try {
+                timestamp = Long.parseLong(img.getIdMensaje());
+            } catch (NumberFormatException e) {
+                timestamp = System.currentTimeMillis();
+            }
+            messageController.guardarMensajeRecibido(contactCode, "[IMG]" + img.getContenidoBase64(), timestamp);
+        }
+
+        view.appendImagenToContact(sender.getIp(), img.getContenidoBase64(), false, null);
+
+        // Enviar 008 automaticamente si el chat esta abierto
+        if (sender.getIp().equals(view.getContactoActivo())) {
+            try {
+                ConfirmacionMensaje conf = new ConfirmacionMensaje(img.getIdMensaje());
+                Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
+                messageController.marcarConfirmado(img.getIdMensaje());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void iniciarHello() {

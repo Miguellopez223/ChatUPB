@@ -4,16 +4,23 @@ import edu.upb.chatupb_v2.controller.ChatController;
 import edu.upb.chatupb_v2.controller.ContactController;
 import edu.upb.chatupb_v2.model.entities.User;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -105,7 +112,7 @@ public class ChatUI extends JFrame implements IChatView {
 
         // --- 3. PANEL INFERIOR: Seleccion de destinatario y envio de mensajes ---
         JPanel panelMensaje = new JPanel(new BorderLayout(5, 5));
-        panelMensaje.setBorder(new TitledBorder("3. Enviar Mensaje de Texto"));
+        panelMensaje.setBorder(new TitledBorder("3. Enviar Mensaje de Texto / Imagen (Trama 007 / 021)"));
 
         JPanel panelDestinatario = new JPanel(new BorderLayout(5, 0));
         panelDestinatario.add(new JLabel("Para: "), BorderLayout.WEST);
@@ -117,8 +124,15 @@ public class ChatUI extends JFrame implements IChatView {
         txtMensaje = new JTextField();
         btnEnviarMensaje = new JButton("Enviar");
         btnEnviarMensaje.setEnabled(false);
+        JButton btnEnviarImagen = new JButton("Imagen");
+        btnEnviarImagen.setToolTipText("Enviar imagen pequena (Trama 021 - Command Pattern)");
+
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        panelBotones.add(btnEnviarImagen);
+        panelBotones.add(btnEnviarMensaje);
+
         panelInput.add(txtMensaje, BorderLayout.CENTER);
-        panelInput.add(btnEnviarMensaje, BorderLayout.EAST);
+        panelInput.add(panelBotones, BorderLayout.EAST);
 
         panelMensaje.add(panelDestinatario, BorderLayout.NORTH);
         panelMensaje.add(panelInput, BorderLayout.CENTER);
@@ -166,6 +180,7 @@ public class ChatUI extends JFrame implements IChatView {
         btnAddUser.addActionListener(e -> chatController.crearNuevoUsuario());
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
+        btnEnviarImagen.addActionListener(e -> seleccionarYEnviarImagen());
         btnEliminarContacto.addActionListener(e -> eliminarContacto());
 
         txtMensaje.addActionListener(e -> enviarMensajeChat());
@@ -228,6 +243,82 @@ public class ChatUI extends JFrame implements IChatView {
         chatController.enviarMensaje(ip, msg);
     }
 
+    /**
+     * Abre un JFileChooser para seleccionar una imagen pequena,
+     * la redimensiona si es necesario, la codifica en Base64
+     * y la envia usando la trama 021 (Patron Command).
+     */
+    private void seleccionarYEnviarImagen() {
+        String ip = obtenerIpDestinatario();
+        if (ip == null) {
+            mostrarError("Selecciona un destinatario.");
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Seleccionar imagen para enviar (Trama 021)");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Imagenes (PNG, JPG, GIF)", "png", "jpg", "jpeg", "gif"));
+        fileChooser.setAcceptAllFileFilterUsed(false);
+
+        if (fileChooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+        File file = fileChooser.getSelectedFile();
+        try {
+            BufferedImage originalImage = ImageIO.read(file);
+            if (originalImage == null) {
+                mostrarError("No se pudo leer la imagen seleccionada.");
+                return;
+            }
+
+            // Redimensionar si es mayor a 200x200 para mantener imagenes pequenas
+            BufferedImage resized = redimensionarImagen(originalImage, 200, 200);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(resized, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+
+            // Limite de seguridad: ~100KB en Base64
+            if (imageBytes.length > 75000) {
+                mostrarError("La imagen es demasiado grande. Selecciona una imagen mas pequena.");
+                return;
+            }
+
+            chatController.enviarImagen(ip, imageBytes);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            mostrarError("Error al procesar la imagen: " + ex.getMessage());
+        }
+    }
+
+    private BufferedImage redimensionarImagen(BufferedImage original, int maxWidth, int maxHeight) {
+        int w = original.getWidth();
+        int h = original.getHeight();
+        if (w <= maxWidth && h <= maxHeight) return original;
+
+        double scale = Math.min((double) maxWidth / w, (double) maxHeight / h);
+        int newW = (int) (w * scale);
+        int newH = (int) (h * scale);
+
+        BufferedImage resized = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = resized.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.drawImage(original, 0, 0, newW, newH, null);
+        g2.dispose();
+        return resized;
+    }
+
+    private String obtenerIpDestinatario() {
+        String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
+        String ip = null;
+        if (itemSeleccionado != null) {
+            ip = extraerIp(itemSeleccionado);
+        }
+        if (ip == null && contactoActivo != null) {
+            ip = contactoActivo;
+        }
+        return ip;
+    }
+ 
     private void eliminarContacto() {
         int row = tablaContactos.getSelectedRow();
         if (row < 0) {
@@ -358,7 +449,11 @@ public class ChatUI extends JFrame implements IChatView {
         for (ChatMessageInfo msg : historial) {
             String time = sdf.format(new Date(msg.getTimestamp()));
             String idMensaje = msg.isMine() ? String.valueOf(msg.getTimestamp()) : null;
-            addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
+            if (msg.isImage()) {
+                addImageBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
+            } else {
+                addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
+            }
         }
 
         panel.add(Box.createVerticalGlue());
@@ -394,6 +489,19 @@ public class ChatUI extends JFrame implements IChatView {
         String time = new SimpleDateFormat("HH:mm").format(new Date());
 
         addBubble(panel, content, time, isMine, false, idMensaje);
+
+        if (ip.equals(contactoActivo)) {
+            scrollChatActual.setViewportView(panel);
+            scrollToBottom(panel);
+        }
+    }
+
+    @Override
+    public void appendImagenToContact(String ip, String base64, boolean isMine, String idMensaje) {
+        JPanel panel = getOrCreateChatPanel(ip);
+        String time = new SimpleDateFormat("HH:mm").format(new Date());
+
+        addImageBubble(panel, base64, time, isMine, false, idMensaje);
 
         if (ip.equals(contactoActivo)) {
             scrollChatActual.setViewportView(panel);
@@ -473,6 +581,70 @@ public class ChatUI extends JFrame implements IChatView {
         panel.revalidate();
     }
     
+    private void addImageBubble(JPanel panel, String base64, String time, boolean isMine, boolean confirmed, String idMensaje) {
+        JPanel rowWrapper = new JPanel(new BorderLayout());
+        rowWrapper.setOpaque(false);
+        rowWrapper.setBorder(new EmptyBorder(3, 0, 3, 0));
+
+        Color bgColor = isMine ? new Color(212, 245, 212) : Color.WHITE;
+        JPanel bubble = new RoundedPanel(bgColor, 14);
+        bubble.setLayout(new BorderLayout());
+
+        // Decodificar Base64 a imagen
+        JLabel imageLabel;
+        try {
+            byte[] imgBytes = Base64.getDecoder().decode(base64);
+            BufferedImage img = ImageIO.read(new ByteArrayInputStream(imgBytes));
+            if (img != null) {
+                imageLabel = new JLabel(new ImageIcon(img));
+            } else {
+                imageLabel = new JLabel("[Imagen no valida]");
+            }
+        } catch (Exception e) {
+            imageLabel = new JLabel("[Error al decodificar imagen]");
+        }
+        imageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
+
+        // Panel inferior: hora + checks
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(new EmptyBorder(0, 0, 6, 8));
+
+        JLabel timeLabel = new JLabel(time);
+        timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        timeLabel.setForeground(new Color(140, 140, 140));
+        bottomPanel.add(timeLabel);
+
+        if (isMine) {
+            JLabel checkLabel = new JLabel();
+            checkLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+            if (confirmed) {
+                checkLabel.setText("\u2713\u2713");
+                checkLabel.setForeground(new Color(53, 147, 234));
+            } else {
+                checkLabel.setText("\u2713");
+                checkLabel.setForeground(new Color(140, 140, 140));
+            }
+            bottomPanel.add(checkLabel);
+
+            if (idMensaje != null) {
+                checkLabels.put(idMensaje, checkLabel);
+            }
+        }
+
+        bubble.add(imageLabel, BorderLayout.CENTER);
+        bubble.add(bottomPanel, BorderLayout.SOUTH);
+
+        JPanel alignmentWrapper = new JPanel(new FlowLayout(isMine ? FlowLayout.RIGHT : FlowLayout.LEFT, 8, 0));
+        alignmentWrapper.setOpaque(false);
+        alignmentWrapper.add(bubble);
+
+        rowWrapper.add(alignmentWrapper, BorderLayout.CENTER);
+
+        panel.add(rowWrapper);
+        panel.revalidate();
+    }
+
     private void addSystemLabel(JPanel panel, String text) {
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER));
         wrapper.setOpaque(false);

@@ -4,6 +4,12 @@ import edu.upb.chatupb_v2.model.network.SocketClient;
 
 import java.io.IOException;
 
+/**
+ * Clase abstracta base para todos los mensajes del protocolo.
+ * Implementa el patron Command: cada subclase define su propio
+ * comportamiento de ejecucion en el metodo execute().
+ *
+ */
 public abstract class Message {
     private String codigo;
 
@@ -19,5 +25,11 @@ public abstract class Message {
 
     public abstract String generarTrama();
 
-    // public abstract void execute(SocketClient client) throws IOException;
+    /**
+     * Patron Command: ejecuta la accion asociada a este mensaje
+     * enviandolo a traves del SocketClient indicado.
+     */
+    public void execute(SocketClient client) throws IOException {
+        client.send(this);
+    }
 }
