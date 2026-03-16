@@ -2,7 +2,9 @@ package edu.upb.chatupb_v2.controller;
 
 import edu.upb.chatupb_v2.model.entities.Contact;
 import edu.upb.chatupb_v2.model.entities.User;
+import edu.upb.chatupb_v2.model.repository.CacheContactDao;
 import edu.upb.chatupb_v2.model.repository.ContactDao;
+import edu.upb.chatupb_v2.model.repository.IContactDao;
 import edu.upb.chatupb_v2.view.ContactInfo;
 import edu.upb.chatupb_v2.view.IChatView;
 
@@ -12,18 +14,20 @@ import java.util.List;
 public class ContactController {
 
     private final IChatView view;
-    private ContactDao contactDao;
+    private IContactDao contactDao;
     private User currentUser;
 
     public ContactController(IChatView view) {
         this.view = view;
         // Inicialmente sin usuario, se setea despues
-        this.contactDao = new ContactDao(0);
+        // Aplicando el patron Decorador para Cachear el DAO
+        this.contactDao = new CacheContactDao(new ContactDao(0));
     }
 
     public void setUsuario(User user) {
         this.currentUser = user;
-        this.contactDao = new ContactDao(user.getId());
+        // Aplicando el patron Decorador para Cachear el DAO
+        this.contactDao = new CacheContactDao(new ContactDao(user.getId()));
         onLoad(); // Recargar contactos del nuevo usuario
     }
 
