@@ -213,6 +213,11 @@ public class ChatController implements ChatEventListener {
         SwingUtilities.invokeLater(() -> procesarConfirmacion(conf, sender));
     }
 
+    @Override
+    public void onEliminacionRecibida(EliminacionMensaje elim, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarEliminacion(elim, sender));
+    }
+
     private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
         if (currentUser == null) return;
         boolean aceptada = view.mostrarDialogoInvitacion(inv.getNombre(), sender.getIp());
@@ -270,7 +275,7 @@ public class ChatController implements ChatEventListener {
             messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), timestamp);
         }
 
-        view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, null);
+        view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje());
 
         // Si el usuario ya tiene abierto el chat de este contacto, enviar 008 automaticamente
         if (sender.getIp().equals(view.getContactoActivo())) {
@@ -288,6 +293,25 @@ public class ChatController implements ChatEventListener {
     private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
         messageController.marcarConfirmado(conf.getIdMensaje());
         view.actualizarCheckMensaje(sender.getIp(), conf.getIdMensaje());
+    }
+
+    private void procesarEliminacion(EliminacionMensaje elim, SocketClient sender) {
+        messageController.eliminarContenidoMensaje(elim.getIdMensaje());
+        view.actualizarBurbujaMensajeEliminado(sender.getIp(), elim.getIdMensaje());
+    }
+
+    public void eliminarMensaje(String ip, String idMensaje) {
+        if (currentUser == null) return;
+        messageController.eliminarContenidoMensaje(idMensaje);
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                EliminacionMensaje elim = new EliminacionMensaje(idMensaje);
+                Mediador.getInstancia().enviarMensaje(ip, elim.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        view.actualizarBurbujaMensajeEliminado(ip, idMensaje);
     }
 
     public void iniciarHello() {

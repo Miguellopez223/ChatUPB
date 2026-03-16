@@ -44,7 +44,7 @@ public class ChatMessageDao {
                         + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                         + "sender_code TEXT NOT NULL, "
                         + "receiver_code TEXT NOT NULL, "
-                        + "content TEXT NOT NULL, "
+                        + "content TEXT, "
                         + "timestamp INTEGER NOT NULL, "
                         + "confirmed INTEGER NOT NULL DEFAULT 0, "
                         + "user_id INTEGER NOT NULL DEFAULT 0"
@@ -58,6 +58,32 @@ public class ChatMessageDao {
                 if (!hasUserId) {
                     log.info("Agregando columna user_id a tabla message...");
                     st.execute("ALTER TABLE message ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
+                }
+
+                // Migrar content de NOT NULL a nullable (SQLite requiere recrear la tabla)
+                boolean contentIsNotNull = false;
+                try (ResultSet rs = st.executeQuery("PRAGMA table_info(message)")) {
+                    while (rs.next()) {
+                        if ("content".equals(rs.getString("name")) && rs.getInt("notnull") == 1) {
+                            contentIsNotNull = true;
+                            break;
+                        }
+                    }
+                }
+                if (contentIsNotNull) {
+                    log.info("Migrando columna content a nullable...");
+                    st.execute("CREATE TABLE message_tmp ("
+                            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                            + "sender_code TEXT NOT NULL, "
+                            + "receiver_code TEXT NOT NULL, "
+                            + "content TEXT, "
+                            + "timestamp INTEGER NOT NULL, "
+                            + "confirmed INTEGER NOT NULL DEFAULT 0, "
+                            + "user_id INTEGER NOT NULL DEFAULT 0"
+                            + ")");
+                    st.execute("INSERT INTO message_tmp SELECT * FROM message");
+                    st.execute("DROP TABLE message");
+                    st.execute("ALTER TABLE message_tmp RENAME TO message");
                 }
             }
 
@@ -175,6 +201,19 @@ public class ChatMessageDao {
             pst.setString(1, contactCode);
             pst.setString(2, myCode);
             pst.setLong(3, currentUserId);
+        };
+        helper.update(query, params);
+    }
+
+    /**
+     * Pone el contenido del mensaje a null (eliminacion logica).
+     * Se usa cuando se recibe la trama 009.
+     */
+    public void setContentNull(String idMensaje) throws ConnectException, SQLException {
+        String query = "UPDATE message SET content = NULL WHERE timestamp = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setLong(1, Long.parseLong(idMensaje));
+            pst.setLong(2, currentUserId);
         };
         helper.update(query, params);
     }

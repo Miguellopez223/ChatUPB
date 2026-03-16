@@ -100,6 +100,18 @@ public class MessageController {
     }
 
     /**
+     * Elimina el contenido de un mensaje (lo pone a null en la BD).
+     */
+    public void eliminarContenidoMensaje(String idMensaje) {
+        if (currentUser == null) return;
+        try {
+            messageDao.setContentNull(idMensaje);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Marca todos los mensajes recibidos de un contacto como vistos/confirmados.
      */
     public void marcarRecibidosComoVistos(String contactCode) {

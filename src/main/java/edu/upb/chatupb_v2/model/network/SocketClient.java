@@ -7,6 +7,7 @@ package edu.upb.chatupb_v2.model.network;
 import edu.upb.chatupb_v2.model.network.message.Message;
 import edu.upb.chatupb_v2.model.network.message.AceptacionInvitacion;
 import edu.upb.chatupb_v2.model.network.message.ConfirmacionMensaje;
+import edu.upb.chatupb_v2.model.network.message.EliminacionMensaje;
 import edu.upb.chatupb_v2.model.network.message.EnvioMensaje;
 import edu.upb.chatupb_v2.model.network.message.Hello;
 import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
@@ -120,6 +121,13 @@ public class SocketClient extends Thread {
                         // Avisamos a todos los listeners que el mensaje fue confirmado
                         for (ChatEventListener listener : listeners) {
                             listener.onConfirmacionRecibida(conf, this);
+                        }
+                        break;
+                    }
+                    case "009": {
+                        EliminacionMensaje elim = EliminacionMensaje.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onEliminacionRecibida(elim, this);
                         }
                         break;
                     }

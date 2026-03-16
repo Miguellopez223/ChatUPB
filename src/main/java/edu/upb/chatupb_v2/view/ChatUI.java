@@ -47,6 +47,12 @@ public class ChatUI extends JFrame implements IChatView {
     // Mapa de idMensaje -> JLabel de checks para actualizar de ✓ a ✓✓
     private final HashMap<String, JLabel> checkLabels = new HashMap<>();
 
+    // Mapa de idMensaje -> JLabel del contenido para actualizar al eliminar
+    private final HashMap<String, JLabel> messageLabels = new HashMap<>();
+
+    // Mapa de idMensaje -> JPanel burbuja para cambiar color al eliminar
+    private final HashMap<String, RoundedPanel> bubblePanels = new HashMap<>();
+
     // User selection
     private JComboBox<User> userComboBox;
     private DefaultComboBoxModel<User> userComboBoxModel;
@@ -357,7 +363,7 @@ public class ChatUI extends JFrame implements IChatView {
 
         for (ChatMessageInfo msg : historial) {
             String time = sdf.format(new Date(msg.getTimestamp()));
-            String idMensaje = msg.isMine() ? String.valueOf(msg.getTimestamp()) : null;
+            String idMensaje = String.valueOf(msg.getTimestamp());
             addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
         }
 
@@ -402,6 +408,35 @@ public class ChatUI extends JFrame implements IChatView {
     }
 
     @Override
+    public void actualizarBurbujaMensajeEliminado(String ip, String idMensaje) {
+        JLabel msgLabel = messageLabels.get(idMensaje);
+        if (msgLabel != null) {
+            String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
+                    + "<i>\uD83D\uDEAB Este mensaje fue eliminado</i></body></html>";
+            msgLabel.setText(html);
+            msgLabel.setComponentPopupMenu(null);
+            msgLabel.revalidate();
+            msgLabel.repaint();
+        }
+        // Remover checks si existian
+        JLabel checkLabel = checkLabels.remove(idMensaje);
+        if (checkLabel != null && checkLabel.getParent() != null) {
+            java.awt.Container parent = checkLabel.getParent();
+            parent.remove(checkLabel);
+            parent.revalidate();
+            parent.repaint();
+        }
+        // Cambiar color de burbuja a gris claro y remover menu contextual
+        RoundedPanel bubble = bubblePanels.get(idMensaje);
+        if (bubble != null) {
+            bubble.setBgColor(new Color(245, 245, 245));
+            bubble.setComponentPopupMenu(null);
+            bubble.revalidate();
+            bubble.repaint();
+        }
+    }
+
+    @Override
     public void actualizarCheckMensaje(String ip, String idMensaje) {
         JLabel checkLabel = checkLabels.get(idMensaje);
         if (checkLabel != null) {
@@ -412,24 +447,42 @@ public class ChatUI extends JFrame implements IChatView {
     }
     
     private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje) {
+        boolean isDeleted = (text == null);
+
         JPanel rowWrapper = new JPanel(new BorderLayout());
         rowWrapper.setOpaque(false);
         rowWrapper.setBorder(new EmptyBorder(3, 0, 3, 0));
 
         // Burbuja con bordes redondeados
-        Color bgColor = isMine ? new Color(212, 245, 212) : Color.WHITE;
-        JPanel bubble = new RoundedPanel(bgColor, 14);
+        Color bgColor;
+        if (isDeleted) {
+            bgColor = new Color(245, 245, 245);
+        } else {
+            bgColor = isMine ? new Color(212, 245, 212) : Color.WHITE;
+        }
+        RoundedPanel bubble = new RoundedPanel(bgColor, 14);
         bubble.setLayout(new BorderLayout());
 
-        // Escapar HTML
-        String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
-
-        String widthStyle = text.length() < 30 ? "" : "width: 250px; ";
-        String html = "<html><body style='" + widthStyle + "font-family: Segoe UI, sans-serif; font-size: 13px;'>"
-                + escapedText + "</body></html>";
-
-        JLabel messageLabel = new JLabel(html);
+        JLabel messageLabel;
+        if (isDeleted) {
+            String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
+                    + "<i>\uD83D\uDEAB Este mensaje fue eliminado</i></body></html>";
+            messageLabel = new JLabel(html);
+        } else {
+            // Escapar HTML
+            String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+            String widthStyle = text.length() < 30 ? "" : "width: 250px; ";
+            String html = "<html><body style='" + widthStyle + "font-family: Segoe UI, sans-serif; font-size: 13px;'>"
+                    + escapedText + "</body></html>";
+            messageLabel = new JLabel(html);
+        }
         messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
+
+        // Registrar el JLabel para poder actualizarlo al eliminar
+        if (idMensaje != null) {
+            messageLabels.put(idMensaje, messageLabel);
+            bubblePanels.put(idMensaje, bubble);
+        }
 
         // Panel inferior: hora + checks
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
@@ -441,8 +494,8 @@ public class ChatUI extends JFrame implements IChatView {
         timeLabel.setForeground(new Color(140, 140, 140));
         bottomPanel.add(timeLabel);
 
-        // Checks solo para mensajes enviados (mios)
-        if (isMine) {
+        // Checks solo para mensajes enviados (mios) y no eliminados
+        if (isMine && !isDeleted) {
             JLabel checkLabel = new JLabel();
             checkLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
             if (confirmed) {
@@ -462,6 +515,25 @@ public class ChatUI extends JFrame implements IChatView {
 
         bubble.add(messageLabel, BorderLayout.CENTER);
         bubble.add(bottomPanel, BorderLayout.SOUTH);
+
+        // Menu contextual para eliminar mensaje (solo en burbujas propias no eliminadas)
+        if (isMine && !isDeleted && idMensaje != null) {
+            JPopupMenu popupMenu = new JPopupMenu();
+            JMenuItem eliminarItem = new JMenuItem("Eliminar mensaje");
+            final String msgId = idMensaje;
+            eliminarItem.addActionListener(e -> {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Eliminar este mensaje? Esta accion no se puede deshacer.",
+                        "Eliminar mensaje", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION && contactoActivo != null) {
+                    chatController.eliminarMensaje(contactoActivo, msgId);
+                }
+            });
+            popupMenu.add(eliminarItem);
+
+            bubble.setComponentPopupMenu(popupMenu);
+            messageLabel.setComponentPopupMenu(popupMenu);
+        }
 
         JPanel alignmentWrapper = new JPanel(new FlowLayout(isMine ? FlowLayout.RIGHT : FlowLayout.LEFT, 8, 0));
         alignmentWrapper.setOpaque(false);
@@ -539,6 +611,8 @@ public class ChatUI extends JFrame implements IChatView {
     public void clearChatHistory() {
         chatPanels.clear();
         checkLabels.clear();
+        messageLabels.clear();
+        bubblePanels.clear();
         scrollChatActual.setViewportView(areaChat);
         areaChat.setText("Selecciona un contacto para chatear.\n");
         scrollChatActual.setBorder(new TitledBorder("Conversacion"));
@@ -564,13 +638,17 @@ public class ChatUI extends JFrame implements IChatView {
      * Panel con bordes redondeados para las burbujas de chat.
      */
     private static class RoundedPanel extends JPanel {
-        private final Color bgColor;
+        private Color bgColor;
         private final int radius;
 
         public RoundedPanel(Color bgColor, int radius) {
             this.bgColor = bgColor;
             this.radius = radius;
             setOpaque(false);
+        }
+
+        public void setBgColor(Color bgColor) {
+            this.bgColor = bgColor;
         }
 
         @Override
