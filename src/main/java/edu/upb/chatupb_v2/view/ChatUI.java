@@ -54,6 +54,16 @@ public class ChatUI extends JFrame implements IChatView {
     // Mapa de idMensaje -> JPanel burbuja para cambiar color al eliminar
     private final HashMap<String, RoundedPanel> bubblePanels = new HashMap<>();
 
+    // Mapa de idMensaje -> JLabel pin para agregar/quitar indicador de fijado
+    private final HashMap<String, JLabel> pinLabels = new HashMap<>();
+
+    // Barra de mensaje fijado en la parte superior del chat
+    private JPanel pinnedMessageBar;
+    private JLabel pinnedMessageLabel;
+    private JButton pinnedUnpinButton;
+    private String pinnedMessageId = null; // ID del mensaje actualmente fijado en la UI
+    private String previousPinnedId = null; // ID del mensaje fijado anterior (para desmarcar burbuja)
+
     // User selection
     private JComboBox<User> userComboBox;
     private DefaultComboBoxModel<User> userComboBoxModel;
@@ -100,6 +110,39 @@ public class ChatUI extends JFrame implements IChatView {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(userPanel, BorderLayout.NORTH);
         topPanel.add(panelConexion, BorderLayout.CENTER);
+
+        // --- BARRA DE MENSAJE FIJADO ---
+        pinnedMessageBar = new JPanel(new BorderLayout(5, 0));
+        pinnedMessageBar.setBackground(new Color(255, 248, 220)); // Amarillo claro
+        pinnedMessageBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 200, 160)),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
+
+        JLabel pinIcon = new JLabel("\uD83D\uDCCC"); // emoji pin
+        pinIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        pinnedMessageBar.add(pinIcon, BorderLayout.WEST);
+
+        pinnedMessageLabel = new JLabel("");
+        pinnedMessageLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        pinnedMessageLabel.setForeground(new Color(80, 80, 80));
+        pinnedMessageLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        pinnedMessageBar.add(pinnedMessageLabel, BorderLayout.CENTER);
+
+        pinnedUnpinButton = new JButton("\u2715"); // X
+        pinnedUnpinButton.setFont(new Font("SansSerif", Font.BOLD, 12));
+        pinnedUnpinButton.setMargin(new Insets(0, 4, 0, 4));
+        pinnedUnpinButton.setFocusPainted(false);
+        pinnedUnpinButton.setContentAreaFilled(false);
+        pinnedUnpinButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        pinnedUnpinButton.setToolTipText("Desfijar mensaje");
+        pinnedUnpinButton.addActionListener(e -> {
+            if (contactoActivo != null && pinnedMessageId != null) {
+                chatController.desfijarMensaje(contactoActivo, pinnedMessageId);
+            }
+        });
+        pinnedMessageBar.add(pinnedUnpinButton, BorderLayout.EAST);
+        pinnedMessageBar.setVisible(false); // Oculta por defecto
 
         // --- 2. PANEL CENTRAL: Area de Chat (intercambiable por contacto) ---
         areaChat = new JTextArea("Selecciona un usuario para comenzar.\n");
@@ -162,10 +205,15 @@ public class ChatUI extends JFrame implements IChatView {
         JButton btnEliminarContacto = new JButton("Eliminar");
         panelContactos.add(btnEliminarContacto, BorderLayout.SOUTH);
 
+        // --- WRAPPER CENTRAL: barra fijado + chat ---
+        JPanel chatWrapper = new JPanel(new BorderLayout());
+        chatWrapper.add(pinnedMessageBar, BorderLayout.NORTH);
+        chatWrapper.add(scrollChatActual, BorderLayout.CENTER);
+
         // --- AGREGAR PANELES A LA VENTANA ---
         add(panelContactos, BorderLayout.WEST);
         add(topPanel, BorderLayout.NORTH);
-        add(scrollChatActual, BorderLayout.CENTER);
+        add(chatWrapper, BorderLayout.CENTER);
         add(panelMensaje, BorderLayout.SOUTH);
 
         // --- CONFIGURAR BOTONES ---
@@ -430,7 +478,7 @@ public class ChatUI extends JFrame implements IChatView {
                 time = msg.getTimestamp() != null ? msg.getTimestamp() : "";
             }
             String idMensaje = msg.getId();
-            addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
+            addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje, msg.isPinned());
         }
 
         panel.add(Box.createVerticalGlue());
@@ -514,6 +562,10 @@ public class ChatUI extends JFrame implements IChatView {
     }
     
     private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje) {
+        addBubble(panel, text, time, isMine, confirmed, idMensaje, false);
+    }
+
+    private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje, boolean pinned) {
         boolean isDeleted = (text == null || text.isEmpty());
 
         JPanel rowWrapper = new JPanel(new BorderLayout());
@@ -551,10 +603,20 @@ public class ChatUI extends JFrame implements IChatView {
             bubblePanels.put(idMensaje, bubble);
         }
 
-        // Panel inferior: hora + checks
+        // Panel inferior: hora + pin + checks
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(new EmptyBorder(0, 0, 6, 8));
+
+        // Indicador de mensaje fijado
+        if (pinned && !isDeleted) {
+            JLabel pinLabel = new JLabel("\uD83D\uDCCC");
+            pinLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
+            bottomPanel.add(pinLabel);
+            if (idMensaje != null) {
+                pinLabels.put(idMensaje, pinLabel);
+            }
+        }
 
         JLabel timeLabel = new JLabel(time);
         timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
@@ -566,10 +628,10 @@ public class ChatUI extends JFrame implements IChatView {
             JLabel checkLabel = new JLabel();
             checkLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
             if (confirmed) {
-                checkLabel.setText("\u2713\u2713"); // ✓✓
+                checkLabel.setText("\u2713\u2713"); // doble check
                 checkLabel.setForeground(new Color(53, 147, 234)); // Azul
             } else {
-                checkLabel.setText("\u2713"); // ✓
+                checkLabel.setText("\u2713"); // check simple
                 checkLabel.setForeground(new Color(140, 140, 140)); // Gris
             }
             bottomPanel.add(checkLabel);
@@ -583,20 +645,33 @@ public class ChatUI extends JFrame implements IChatView {
         bubble.add(messageLabel, BorderLayout.CENTER);
         bubble.add(bottomPanel, BorderLayout.SOUTH);
 
-        // Menu contextual para eliminar mensaje (solo en burbujas propias no eliminadas)
-        if (isMine && !isDeleted && idMensaje != null) {
+        // Menu contextual (para todos los mensajes no eliminados)
+        if (!isDeleted && idMensaje != null) {
             JPopupMenu popupMenu = new JPopupMenu();
-            JMenuItem eliminarItem = new JMenuItem("Eliminar mensaje");
             final String msgId = idMensaje;
-            eliminarItem.addActionListener(e -> {
-                int confirm = JOptionPane.showConfirmDialog(this,
-                        "Eliminar este mensaje? Esta accion no se puede deshacer.",
-                        "Eliminar mensaje", JOptionPane.YES_NO_OPTION);
-                if (confirm == JOptionPane.YES_OPTION && contactoActivo != null) {
-                    chatController.eliminarMensaje(contactoActivo, msgId);
+
+            // Opcion: Fijar mensaje
+            JMenuItem fijarItem = new JMenuItem("\uD83D\uDCCC Fijar mensaje");
+            fijarItem.addActionListener(e -> {
+                if (contactoActivo != null) {
+                    chatController.fijarMensaje(contactoActivo, msgId);
                 }
             });
-            popupMenu.add(eliminarItem);
+            popupMenu.add(fijarItem);
+
+            // Opcion: Eliminar mensaje (solo para mensajes propios)
+            if (isMine) {
+                JMenuItem eliminarItem = new JMenuItem("Eliminar mensaje");
+                eliminarItem.addActionListener(e -> {
+                    int confirm = JOptionPane.showConfirmDialog(this,
+                            "Eliminar este mensaje? Esta accion no se puede deshacer.",
+                            "Eliminar mensaje", JOptionPane.YES_NO_OPTION);
+                    if (confirm == JOptionPane.YES_OPTION && contactoActivo != null) {
+                        chatController.eliminarMensaje(contactoActivo, msgId);
+                    }
+                });
+                popupMenu.add(eliminarItem);
+            }
 
             bubble.setComponentPopupMenu(popupMenu);
             messageLabel.setComponentPopupMenu(popupMenu);
@@ -674,12 +749,77 @@ public class ChatUI extends JFrame implements IChatView {
         return contactoActivo;
     }
 
+    // --- Pinned Message Methods ---
+
+    @Override
+    public void mostrarMensajeFijado(String ip, ChatMessageInfo mensaje) {
+        if (!ip.equals(contactoActivo)) return;
+        if (mensaje == null || mensaje.getContent() == null || mensaje.getContent().isEmpty()) {
+            ocultarMensajeFijado(ip);
+            return;
+        }
+        pinnedMessageId = mensaje.getId();
+        String textoTruncado = mensaje.getContent();
+        if (textoTruncado.length() > 80) {
+            textoTruncado = textoTruncado.substring(0, 80) + "...";
+        }
+        pinnedMessageLabel.setText(textoTruncado);
+        pinnedMessageBar.setVisible(true);
+        pinnedMessageBar.revalidate();
+        pinnedMessageBar.repaint();
+    }
+
+    @Override
+    public void ocultarMensajeFijado(String ip) {
+        if (!ip.equals(contactoActivo)) return;
+        pinnedMessageId = null;
+        pinnedMessageBar.setVisible(false);
+        pinnedMessageBar.revalidate();
+        pinnedMessageBar.repaint();
+    }
+
+    @Override
+    public void marcarBurbujaFijada(String ip, String idMensaje) {
+        // Si ya tiene pin label, no hacer nada
+        if (pinLabels.containsKey(idMensaje)) return;
+
+        RoundedPanel bubble = bubblePanels.get(idMensaje);
+        if (bubble != null) {
+            // Buscar el bottomPanel (SOUTH component del bubble)
+            Component southComp = ((BorderLayout) bubble.getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+            if (southComp instanceof JPanel) {
+                JPanel bottomPanel = (JPanel) southComp;
+                JLabel pinLabel = new JLabel("\uD83D\uDCCC");
+                pinLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
+                bottomPanel.add(pinLabel, 0); // Agregar al inicio
+                pinLabels.put(idMensaje, pinLabel);
+                bottomPanel.revalidate();
+                bottomPanel.repaint();
+            }
+        }
+    }
+
+    @Override
+    public void desmarcarBurbujaFijada(String ip, String idMensaje) {
+        JLabel pinLabel = pinLabels.remove(idMensaje);
+        if (pinLabel != null && pinLabel.getParent() != null) {
+            Container parent = pinLabel.getParent();
+            parent.remove(pinLabel);
+            parent.revalidate();
+            parent.repaint();
+        }
+    }
+
     @Override
     public void clearChatHistory() {
         chatPanels.clear();
         checkLabels.clear();
         messageLabels.clear();
         bubblePanels.clear();
+        pinLabels.clear();
+        pinnedMessageId = null;
+        previousPinnedId = null;
+        pinnedMessageBar.setVisible(false);
         scrollChatActual.setViewportView(areaChat);
         areaChat.setText("Selecciona un contacto para chatear.\n");
         scrollChatActual.setBorder(new TitledBorder("Conversacion"));

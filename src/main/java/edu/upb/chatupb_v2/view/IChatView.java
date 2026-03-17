@@ -23,6 +23,12 @@ public interface IChatView {
     void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
     void clearChatHistory();
 
+    // --- Pinned Message ---
+    void mostrarMensajeFijado(String ip, ChatMessageInfo mensaje);
+    void ocultarMensajeFijado(String ip);
+    void marcarBurbujaFijada(String ip, String idMensaje);
+    void desmarcarBurbujaFijada(String ip, String idMensaje);
+
     // --- UI State & Feedback ---
     boolean mostrarDialogoInvitacion(String nombre, String ip);
     void mostrarError(String mensaje);

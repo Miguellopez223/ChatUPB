@@ -11,15 +11,22 @@ public class ChatMessageInfo {
     private final String timestamp;
     private final boolean confirmed;
     private final boolean mine;
+    private final boolean pinned;
 
     public ChatMessageInfo(String id, String senderCode, String content, String timestamp,
                            boolean confirmed, boolean mine) {
+        this(id, senderCode, content, timestamp, confirmed, mine, false);
+    }
+
+    public ChatMessageInfo(String id, String senderCode, String content, String timestamp,
+                           boolean confirmed, boolean mine, boolean pinned) {
         this.id = id;
         this.senderCode = senderCode;
         this.content = content;
         this.timestamp = timestamp;
         this.confirmed = confirmed;
         this.mine = mine;
+        this.pinned = pinned;
     }
 
     public String getId() {
@@ -44,5 +51,9 @@ public class ChatMessageInfo {
 
     public boolean isMine() {
         return mine;
+    }
+
+    public boolean isPinned() {
+        return pinned;
     }
 }

@@ -71,7 +71,8 @@ public class MessageController {
                         m.getContent(),
                         m.getTimestamp(),
                         m.isConfirmed(),
-                        m.getSenderCode().equals(currentUser.getCode())
+                        m.getSenderCode().equals(currentUser.getCode()),
+                        m.isPinned()
                 ));
             }
         } catch (Exception e) {
@@ -123,6 +124,54 @@ public class MessageController {
             messageDao.markReceivedAsConfirmed(currentUser.getCode(), contactCode);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Fija un mensaje en la conversacion con un contacto.
+     * Desfija automaticamente cualquier mensaje previamente fijado.
+     */
+    public void fijarMensaje(String idMensaje, String contactCode) {
+        if (currentUser == null) return;
+        try {
+            messageDao.pinMessage(idMensaje, currentUser.getCode(), contactCode);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Desfija un mensaje.
+     */
+    public void desfijarMensaje(String idMensaje) {
+        if (currentUser == null) return;
+        try {
+            messageDao.unpinMessage(idMensaje);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Obtiene el mensaje fijado de una conversacion, o null si no hay ninguno.
+     */
+    public ChatMessageInfo obtenerMensajeFijado(String contactCode) {
+        if (currentUser == null) return null;
+        try {
+            ChatMessage m = messageDao.findPinnedMessage(currentUser.getCode(), contactCode);
+            if (m == null) return null;
+            return new ChatMessageInfo(
+                    m.getId(),
+                    m.getSenderCode(),
+                    m.getContent(),
+                    m.getTimestamp(),
+                    m.isConfirmed(),
+                    m.getSenderCode().equals(currentUser.getCode()),
+                    m.isPinned()
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

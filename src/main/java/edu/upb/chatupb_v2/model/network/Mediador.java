@@ -10,6 +10,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.model.network.message.Zumbido;
+import edu.upb.chatupb_v2.model.network.message.FijarMensaje;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
 
 import java.io.IOException;
@@ -259,6 +260,13 @@ public class Mediador implements ChatEventListener {
     public void onZumbidoRecibido(Zumbido zumbido, SocketClient sender) {
         for (ChatEventListener listener : listeners) {
             listener.onZumbidoRecibido(zumbido, sender);
+        }
+    }
+
+    @Override
+    public void onFijarMensajeRecibido(FijarMensaje fijar, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onFijarMensajeRecibido(fijar, sender);
         }
     }
 }

@@ -139,6 +139,13 @@ public class SocketClient extends Thread {
                         }
                         break;
                     }
+                    case "011": {
+                        edu.upb.chatupb_v2.model.network.message.FijarMensaje fijar = edu.upb.chatupb_v2.model.network.message.FijarMensaje.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onFijarMensajeRecibido(fijar, this);
+                        }
+                        break;
+                    }
                 }
             }
         } catch (IOException e) {

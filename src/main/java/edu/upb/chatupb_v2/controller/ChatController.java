@@ -171,6 +171,14 @@ public class ChatController implements ChatEventListener {
 
         List<ChatMessageInfo> historial = messageController.cargarHistorial(contacto.getCode());
         view.abrirChatConContacto(contacto, historial);
+
+        // Cargar mensaje fijado si existe
+        ChatMessageInfo fijado = messageController.obtenerMensajeFijado(contacto.getCode());
+        if (fijado != null) {
+            view.mostrarMensajeFijado(contacto.getIp(), fijado);
+        } else {
+            view.ocultarMensajeFijado(contacto.getIp());
+        }
     }
 
     @Override
@@ -221,6 +229,11 @@ public class ChatController implements ChatEventListener {
     @Override
     public void onZumbidoRecibido(Zumbido zumbido, SocketClient sender) {
         SwingUtilities.invokeLater(() -> procesarZumbido(zumbido, sender));
+    }
+
+    @Override
+    public void onFijarMensajeRecibido(FijarMensaje fijar, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarFijarMensaje(fijar, sender));
     }
 
     private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
@@ -314,6 +327,96 @@ public class ChatController implements ChatEventListener {
             }
         }
         view.actualizarBurbujaMensajeEliminado(ip, idMensaje);
+    }
+
+    /**
+     * Fija un mensaje localmente y envia trama 011 al contacto.
+     */
+    public void fijarMensaje(String ip, String idMensaje) {
+        if (currentUser == null) return;
+
+        String contactCode = codigosConectados.get(ip);
+        if (contactCode == null) {
+            contactCode = contactController.buscarCodigoPorIp(ip);
+        }
+
+        // Obtener mensaje fijado anterior para desmarcar burbuja
+        ChatMessageInfo anteriorFijado = null;
+        if (contactCode != null) {
+            anteriorFijado = messageController.obtenerMensajeFijado(contactCode);
+        }
+
+        // Fijar en BD
+        if (contactCode != null) {
+            messageController.fijarMensaje(idMensaje, contactCode);
+        }
+
+        // Desmarcar burbuja anterior
+        if (anteriorFijado != null) {
+            view.desmarcarBurbujaFijada(ip, anteriorFijado.getId());
+        }
+
+        // Marcar nueva burbuja
+        view.marcarBurbujaFijada(ip, idMensaje);
+
+        // Mostrar barra de fijado
+        ChatMessageInfo nuevoFijado = (contactCode != null) ? messageController.obtenerMensajeFijado(contactCode) : null;
+        if (nuevoFijado != null) {
+            view.mostrarMensajeFijado(ip, nuevoFijado);
+        }
+
+        // Enviar trama 011 al contacto
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                FijarMensaje fijar = new FijarMensaje(idMensaje);
+                Mediador.getInstancia().enviarMensaje(ip, fijar.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Desfija un mensaje localmente y notifica al contacto.
+     */
+    public void desfijarMensaje(String ip, String idMensaje) {
+        if (currentUser == null) return;
+
+        // Desfijar en BD
+        messageController.desfijarMensaje(idMensaje);
+
+        // Desmarcar burbuja
+        view.desmarcarBurbujaFijada(ip, idMensaje);
+
+        // Ocultar barra
+        view.ocultarMensajeFijado(ip);
+    }
+
+    private void procesarFijarMensaje(FijarMensaje fijar, SocketClient sender) {
+        String idMensaje = fijar.getIdMensaje();
+        String contactCode = codigosConectados.get(sender.getIp());
+
+        if (contactCode != null) {
+            // Obtener mensaje fijado anterior
+            ChatMessageInfo anteriorFijado = messageController.obtenerMensajeFijado(contactCode);
+
+            // Fijar en BD
+            messageController.fijarMensaje(idMensaje, contactCode);
+
+            // Desmarcar burbuja anterior
+            if (anteriorFijado != null) {
+                view.desmarcarBurbujaFijada(sender.getIp(), anteriorFijado.getId());
+            }
+
+            // Marcar nueva burbuja
+            view.marcarBurbujaFijada(sender.getIp(), idMensaje);
+
+            // Mostrar barra si el chat esta activo
+            ChatMessageInfo nuevoFijado = messageController.obtenerMensajeFijado(contactCode);
+            if (nuevoFijado != null) {
+                view.mostrarMensajeFijado(sender.getIp(), nuevoFijado);
+            }
+        }
     }
 
     private void procesarZumbido(Zumbido zumbido, SocketClient sender) {

@@ -41,6 +41,13 @@ public class ChatMessageDao {
                     + "user_id VARCHAR(36) DEFAULT NULL"
                     + ")");
 
+            // Agregar columna pinned si no existe (migracion para DBs existentes)
+            try {
+                st.execute("ALTER TABLE message ADD COLUMN pinned INTEGER DEFAULT 0");
+            } catch (SQLException ignored) {
+                // La columna ya existe, ignorar
+            }
+
             // Crear indices si no existen
             st.execute("CREATE INDEX IF NOT EXISTS idx_message_conversation "
                     + "ON message(sender_code, receiver_code)");
@@ -77,6 +84,10 @@ public class ChatMessageDao {
             int val = result.getInt(ChatMessage.Column.CONFIRMED);
             msg.setConfirmed(!result.wasNull() && val == 1);
         }
+        if (ContactDao.existColumn(result, ChatMessage.Column.PINNED)) {
+            int pinVal = result.getInt(ChatMessage.Column.PINNED);
+            msg.setPinned(!result.wasNull() && pinVal == 1);
+        }
         if (ContactDao.existColumn(result, ChatMessage.Column.USER_ID)) {
             msg.setUserId(result.getString(ChatMessage.Column.USER_ID));
         }
@@ -90,8 +101,8 @@ public class ChatMessageDao {
             message.setId(UUID.randomUUID().toString());
         }
         message.setUserId(currentUserId);
-        String query = "INSERT OR IGNORE INTO message(id, sender_code, receiver_code, content, timestamp, confirmed, user_id) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT OR IGNORE INTO message(id, sender_code, receiver_code, content, timestamp, confirmed, pinned, user_id) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, message.getId());
             pst.setString(2, message.getSenderCode());
@@ -99,7 +110,8 @@ public class ChatMessageDao {
             pst.setString(4, message.getContent());
             pst.setString(5, message.getTimestamp());
             pst.setInt(6, message.isConfirmed() ? 1 : 0);
-            pst.setString(7, message.getUserId());
+            pst.setInt(7, message.isPinned() ? 1 : 0);
+            pst.setString(8, message.getUserId());
         };
         helper.insert(query, params);
     }
@@ -176,6 +188,69 @@ public class ChatMessageDao {
             pst.setString(2, currentUserId);
         };
         helper.update(query, params);
+    }
+
+    /**
+     * Fija un mensaje en la conversacion. Primero desfija todos los mensajes
+     * de esa conversacion y luego fija el mensaje indicado.
+     * Solo puede haber un mensaje fijado por conversacion.
+     */
+    public void pinMessage(String idMensaje, String myCode, String contactCode)
+            throws ConnectException, SQLException {
+        // Primero desfijar todos los mensajes de la conversacion
+        String unpinAll = "UPDATE message SET pinned = 0 WHERE "
+                + "((sender_code = ? AND receiver_code = ?) OR "
+                + "(sender_code = ? AND receiver_code = ?)) "
+                + "AND user_id = ? AND pinned = 1";
+        DaoHelper.QueryParameters unpinParams = pst -> {
+            pst.setString(1, myCode);
+            pst.setString(2, contactCode);
+            pst.setString(3, contactCode);
+            pst.setString(4, myCode);
+            pst.setString(5, currentUserId);
+        };
+        helper.update(unpinAll, unpinParams);
+
+        // Fijar el mensaje seleccionado
+        String pin = "UPDATE message SET pinned = 1 WHERE id = ? AND user_id = ?";
+        DaoHelper.QueryParameters pinParams = pst -> {
+            pst.setString(1, idMensaje);
+            pst.setString(2, currentUserId);
+        };
+        helper.update(pin, pinParams);
+    }
+
+    /**
+     * Desfija un mensaje.
+     */
+    public void unpinMessage(String idMensaje) throws ConnectException, SQLException {
+        String query = "UPDATE message SET pinned = 0 WHERE id = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, idMensaje);
+            pst.setString(2, currentUserId);
+        };
+        helper.update(query, params);
+    }
+
+    /**
+     * Busca el mensaje fijado de una conversacion.
+     * Retorna null si no hay mensaje fijado.
+     */
+    public ChatMessage findPinnedMessage(String myCode, String contactCode)
+            throws ConnectException, SQLException {
+        String query = "SELECT * FROM message WHERE "
+                + "((sender_code = ? AND receiver_code = ?) OR "
+                + "(sender_code = ? AND receiver_code = ?)) "
+                + "AND user_id = ? AND pinned = 1 LIMIT 1";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, myCode);
+            pst.setString(2, contactCode);
+            pst.setString(3, contactCode);
+            pst.setString(4, myCode);
+            pst.setString(5, currentUserId);
+        };
+        List<ChatMessage> results = helper.executeQuery(query, params, resultReader);
+        return results.isEmpty() ? null : results.get(0);
     }
 
     public void deleteConversation(String myCode, String contactCode)
