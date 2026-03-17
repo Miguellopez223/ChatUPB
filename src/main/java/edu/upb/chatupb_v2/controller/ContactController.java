@@ -21,7 +21,7 @@ public class ContactController {
         this.view = view;
         // Inicialmente sin usuario, se setea despues
         // Aplicando el patron Decorador para Cachear el DAO
-        this.contactDao = new CacheContactDao(new ContactDao(0));
+        this.contactDao = new CacheContactDao(new ContactDao());
     }
 
     public void setUsuario(User user) {
@@ -135,7 +135,7 @@ public class ContactController {
         }
     }
 
-    public void eliminar(long id) {
+    public void eliminar(String id) {
         if (currentUser == null) return;
         try {
             contactDao.delete(id);

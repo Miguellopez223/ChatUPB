@@ -17,12 +17,12 @@ public class User implements Serializable, Model {
         public static final String NAME = "name";
     }
 
-    private long id;
+    private String id;
     private String code;
     private String name;
 
     @Override
-    public void setId(long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

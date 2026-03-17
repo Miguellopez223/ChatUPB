@@ -123,8 +123,8 @@ public class ChatController implements ChatEventListener {
 
     public void enviarMensaje(String ip, String mensaje) {
         if (currentUser == null) return;
-        long timestamp = System.currentTimeMillis();
-        String idMensaje = String.valueOf(timestamp);
+        String idMensaje = UUID.randomUUID().toString();
+        String timestamp = String.valueOf(System.currentTimeMillis());
 
         String contactCode = codigosConectados.get(ip);
         if (contactCode == null) {
@@ -132,7 +132,7 @@ public class ChatController implements ChatEventListener {
         }
 
         if (contactCode != null) {
-            messageController.guardarMensajeEnviado(contactCode, mensaje, timestamp);
+            messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp);
         }
 
         if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
@@ -159,7 +159,7 @@ public class ChatController implements ChatEventListener {
                 && Mediador.getInstancia().existe(contacto.getIp())) {
             for (ChatMessage msg : noConfirmados) {
                 try {
-                    ConfirmacionMensaje conf = new ConfirmacionMensaje(String.valueOf(msg.getTimestamp()));
+                    ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getId());
                     Mediador.getInstancia().enviarMensaje(contacto.getIp(), conf.generarTrama());
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -218,6 +218,11 @@ public class ChatController implements ChatEventListener {
         SwingUtilities.invokeLater(() -> procesarEliminacion(elim, sender));
     }
 
+    @Override
+    public void onZumbidoRecibido(Zumbido zumbido, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> procesarZumbido(zumbido, sender));
+    }
+
     private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
         if (currentUser == null) return;
         boolean aceptada = view.mostrarDialogoInvitacion(inv.getNombre(), sender.getIp());
@@ -266,13 +271,9 @@ public class ChatController implements ChatEventListener {
         String contactCode = codigosConectados.get(sender.getIp());
 
         if (contactCode != null) {
-            long timestamp;
-            try {
-                timestamp = Long.parseLong(msg.getIdMensaje());
-            } catch (NumberFormatException e) {
-                timestamp = System.currentTimeMillis();
-            }
-            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), timestamp);
+            String idMensaje = msg.getIdMensaje();
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), idMensaje, timestamp);
         }
 
         view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje());
@@ -296,8 +297,9 @@ public class ChatController implements ChatEventListener {
     }
 
     private void procesarEliminacion(EliminacionMensaje elim, SocketClient sender) {
-        messageController.eliminarContenidoMensaje(elim.getIdMensaje());
-        view.actualizarBurbujaMensajeEliminado(sender.getIp(), elim.getIdMensaje());
+        String idMensaje = elim.getIdMensaje();
+        messageController.eliminarContenidoMensaje(idMensaje);
+        view.actualizarBurbujaMensajeEliminado(sender.getIp(), idMensaje);
     }
 
     public void eliminarMensaje(String ip, String idMensaje) {
@@ -312,6 +314,26 @@ public class ChatController implements ChatEventListener {
             }
         }
         view.actualizarBurbujaMensajeEliminado(ip, idMensaje);
+    }
+
+    private void procesarZumbido(Zumbido zumbido, SocketClient sender) {
+        String nombre = nombresConectados.getOrDefault(sender.getIp(), sender.getIp());
+        view.mostrarZumbido(sender.getIp(), nombre);
+    }
+
+    public void enviarZumbido(String ip) {
+        if (currentUser == null) return;
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                Zumbido zumbido = new Zumbido(currentUser.getCode());
+                Mediador.getInstancia().enviarMensaje(ip, zumbido.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        // Tambien hacer vibrar mi propia ventana
+        String miNombre = view.getMiNombre();
+        view.mostrarZumbido(ip, miNombre != null ? miNombre : "Tu");
     }
 
     public void iniciarHello() {

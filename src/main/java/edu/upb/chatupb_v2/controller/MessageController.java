@@ -15,7 +15,7 @@ public class MessageController {
 
     public MessageController() {
         // Inicialmente sin usuario
-        this.messageDao = new ChatMessageDao(0);
+        this.messageDao = new ChatMessageDao();
     }
 
     public void setUsuario(User user) {
@@ -23,9 +23,10 @@ public class MessageController {
         this.messageDao = new ChatMessageDao(user.getId());
     }
 
-    public ChatMessage guardarMensajeEnviado(String receiverCode, String content, long timestamp) {
+    public ChatMessage guardarMensajeEnviado(String receiverCode, String content, String idMensaje, String timestamp) {
         if (currentUser == null) return null;
         ChatMessage msg = ChatMessage.builder()
+                .id(idMensaje)
                 .senderCode(currentUser.getCode())
                 .receiverCode(receiverCode)
                 .content(content)
@@ -40,14 +41,15 @@ public class MessageController {
         return msg;
     }
 
-    public ChatMessage guardarMensajeRecibido(String senderCode, String content, long timestamp) {
+    public ChatMessage guardarMensajeRecibido(String senderCode, String content, String idMensaje, String timestamp) {
         if (currentUser == null) return null;
         ChatMessage msg = ChatMessage.builder()
+                .id(idMensaje)
                 .senderCode(senderCode)
                 .receiverCode(currentUser.getCode())
                 .content(content)
                 .timestamp(timestamp)
-                .confirmed(false) // No confirmado hasta que el usuario abra el chat y se envie 008
+                .confirmed(false)
                 .build();
         try {
             messageDao.save(msg);
@@ -64,6 +66,7 @@ public class MessageController {
             List<ChatMessage> messages = messageDao.findConversation(currentUser.getCode(), contactCode);
             for (ChatMessage m : messages) {
                 result.add(new ChatMessageInfo(
+                        m.getId(),
                         m.getSenderCode(),
                         m.getContent(),
                         m.getTimestamp(),

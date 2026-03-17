@@ -32,6 +32,7 @@ public interface IChatView {
     void refrescarEstadoContactos();
     void actualizarEstadoInvitacion(String ip);
     void limpiarMensaje();
+    void mostrarZumbido(String ip, String nombreContacto);
     String getMiNombre();
     String getContactoActivo();
 }

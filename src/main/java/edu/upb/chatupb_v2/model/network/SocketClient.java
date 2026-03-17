@@ -14,6 +14,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.Zumbido;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -128,6 +129,13 @@ public class SocketClient extends Thread {
                         EliminacionMensaje elim = EliminacionMensaje.parse(message);
                         for (ChatEventListener listener : listeners) {
                             listener.onEliminacionRecibida(elim, this);
+                        }
+                        break;
+                    }
+                    case "010": {
+                        Zumbido zumbido = Zumbido.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onZumbidoRecibido(zumbido, this);
                         }
                         break;
                     }

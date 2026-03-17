@@ -40,7 +40,7 @@ public class CacheContactDao implements IContactDao {
     }
 
     @Override
-    public void delete(long id) throws ConnectException, SQLException {
+    public void delete(String id) throws ConnectException, SQLException {
         decoratedDao.delete(id);
         cacheDirty = true; // Invalidar caché
     }

@@ -9,6 +9,7 @@ import edu.upb.chatupb_v2.model.network.message.HelloRechazo;
 import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
+import edu.upb.chatupb_v2.model.network.message.Zumbido;
 
 public interface ChatEventListener {
     void onInvitacionRecibida(Invitacion inv, SocketClient sender);
@@ -20,4 +21,5 @@ public interface ChatEventListener {
     void onMensajeRecibido(EnvioMensaje msg, SocketClient sender);
     void onConfirmacionRecibida(ConfirmacionMensaje conf, SocketClient sender);
     void onEliminacionRecibida(EliminacionMensaje elim, SocketClient sender);
+    void onZumbidoRecibido(Zumbido zumbido, SocketClient sender);
 }

@@ -11,11 +11,11 @@ import java.io.Serializable;
  * +---------+-------------------------------+
  * | Columna | Tipo                          |
  * +---------+-------------------------------+
- * | id      | INTEGER PRIMARY KEY AUTO      |
- * | code    | TEXT NOT NULL UNIQUE (UUID)    |
- * | name    | TEXT NOT NULL                  |
- * | ip      | TEXT NOT NULL                  |
- * | user_id | INTEGER NOT NULL (FK)          |
+ * | id      | VARCHAR(36) PRIMARY KEY (UUID) |
+ * | code    | TEXT DEFAULT NULL              |
+ * | name    | TEXT DEFAULT NULL              |
+ * | ip      | TEXT DEFAULT NULL              |
+ * | user_id | VARCHAR(36) DEFAULT NULL (FK)  |
  * +---------+-------------------------------+
  */
 @Builder
@@ -24,9 +24,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Contact implements Serializable, Model {
-
-    /** UUID que identifica a este usuario local en la red P2P */
-    // public static final String ME_CODE = "af3bc20a-766c-4cd4-813d-b1067a01fa9a"; // Deprecated, use User.code
 
     /** Constantes de nombres de columna en la BD */
     public static final class Column {
@@ -37,14 +34,14 @@ public class Contact implements Serializable, Model {
         public static final String USER_ID = "user_id";
     }
 
-    private long id;
+    private String id;
     private String code;
     private String name;
     private String ip;
-    private long userId;
+    private String userId;
 
     @Override
-    public void setId(long id) {
+    public void setId(String id) {
         this.id = id;
     }
 }

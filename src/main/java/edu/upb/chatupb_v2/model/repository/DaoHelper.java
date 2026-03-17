@@ -1,6 +1,5 @@
 package edu.upb.chatupb_v2.model.repository;
 
-import edu.upb.chatupb_v2.model.entities.Model;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.ConnectException;
@@ -86,7 +85,7 @@ public class DaoHelper<T>  {
         return new ArrayList<T>();
     }
 
-    protected void insert(String query, QueryParameters params, Model model) throws Exception {
+    protected void insert(String query, QueryParameters params) throws Exception {
         Connection conn = null;
         try {
             conn = ConnectionDB.getInstance().getConection();
@@ -94,17 +93,11 @@ public class DaoHelper<T>  {
             log.info("No se logro crear conexion a la base de datos", ex);
             throw new SQLException(ex);
         }
-        try (PreparedStatement st = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement st = conn.prepareStatement(query)) {
             if (params != null) {
                 params.setParameters(st);
             }
-            if (st.executeUpdate() > 0) {
-                try (ResultSet rs = st.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        model.setId(rs.getLong(1));
-                    }
-                }
-            }
+            st.executeUpdate();
         } catch (SQLException e) {
             log.error("Excepcion sql al ejecutar la query : {}  causa => {}", query, e.getMessage());
             throw new SQLException(e);

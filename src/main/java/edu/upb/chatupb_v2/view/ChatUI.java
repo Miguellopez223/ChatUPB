@@ -29,6 +29,7 @@ public class ChatUI extends JFrame implements IChatView {
     private JTextArea areaChat; // Para logs globales
     private JTextField txtMensaje;
     private JButton btnEnviarMensaje;
+    private JButton btnZumbido;
     private DefaultComboBoxModel<String> modeloDestinatarios;
     private JComboBox<String> comboDestinatarios;
 
@@ -123,8 +124,13 @@ public class ChatUI extends JFrame implements IChatView {
         txtMensaje = new JTextField();
         btnEnviarMensaje = new JButton("Enviar");
         btnEnviarMensaje.setEnabled(false);
+        btnZumbido = new JButton("\uD83D\uDCA5 Zumbido");
+        btnZumbido.setEnabled(false);
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        panelBotones.add(btnZumbido);
+        panelBotones.add(btnEnviarMensaje);
         panelInput.add(txtMensaje, BorderLayout.CENTER);
-        panelInput.add(btnEnviarMensaje, BorderLayout.EAST);
+        panelInput.add(panelBotones, BorderLayout.EAST);
 
         panelMensaje.add(panelDestinatario, BorderLayout.NORTH);
         panelMensaje.add(panelInput, BorderLayout.CENTER);
@@ -172,6 +178,7 @@ public class ChatUI extends JFrame implements IChatView {
         btnAddUser.addActionListener(e -> chatController.crearNuevoUsuario());
         btnEnviarInvitacion.addActionListener(e -> enviarInvitacion());
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
+        btnZumbido.addActionListener(e -> enviarZumbido());
         btnEliminarContacto.addActionListener(e -> eliminarContacto());
 
         txtMensaje.addActionListener(e -> enviarMensajeChat());
@@ -232,6 +239,58 @@ public class ChatUI extends JFrame implements IChatView {
         if (ip == null) return;
 
         chatController.enviarMensaje(ip, msg);
+    }
+
+    private void enviarZumbido() {
+        String itemSeleccionado = (String) comboDestinatarios.getSelectedItem();
+        String ip = null;
+
+        if (itemSeleccionado != null) {
+            ip = extraerIp(itemSeleccionado);
+        }
+
+        if (ip == null && contactoActivo != null) {
+            ip = contactoActivo;
+        }
+
+        if (ip == null) return;
+
+        chatController.enviarZumbido(ip);
+    }
+
+    @Override
+    public void mostrarZumbido(String ip, String nombreContacto) {
+        // Mostrar mensaje de sistema en el chat
+        JPanel panel = getOrCreateChatPanel(ip);
+        addSystemLabel(panel, "\uD83D\uDCA5 " + nombreContacto + " ha enviado un zumbido!");
+        if (ip.equals(contactoActivo)) {
+            scrollChatActual.setViewportView(panel);
+            scrollToBottom(panel);
+        }
+
+        // Animacion de temblor (shake) de toda la ventana
+        final Point posOriginal = getLocation();
+        final int duracion = 500; // milisegundos totales
+        final int intervalo = 30; // ms entre cada movimiento
+        final int intensidad = 8; // pixeles de desplazamiento
+
+        Timer shakeTimer = new Timer(intervalo, null);
+        final long[] inicio = {System.currentTimeMillis()};
+        shakeTimer.addActionListener(e -> {
+            long transcurrido = System.currentTimeMillis() - inicio[0];
+            if (transcurrido >= duracion) {
+                shakeTimer.stop();
+                setLocation(posOriginal);
+            } else {
+                int dx = (int) (Math.random() * intensidad * 2) - intensidad;
+                int dy = (int) (Math.random() * intensidad * 2) - intensidad;
+                setLocation(posOriginal.x + dx, posOriginal.y + dy);
+            }
+        });
+        shakeTimer.start();
+
+        // Sonido de sistema (beep)
+        Toolkit.getDefaultToolkit().beep();
     }
 
     private void eliminarContacto() {
@@ -307,11 +366,13 @@ public class ChatUI extends JFrame implements IChatView {
             lblEstado.setForeground(Color.RED);
             if (contactoActivo == null) {
                 btnEnviarMensaje.setEnabled(false);
+                btnZumbido.setEnabled(false);
             }
         } else {
             lblEstado.setText("Estado: " + numConexiones + " conexion(es) activa(s)");
             lblEstado.setForeground(new Color(0, 153, 0));
             btnEnviarMensaje.setEnabled(true);
+            btnZumbido.setEnabled(true);
         }
     }
 
@@ -362,8 +423,13 @@ public class ChatUI extends JFrame implements IChatView {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
 
         for (ChatMessageInfo msg : historial) {
-            String time = sdf.format(new Date(msg.getTimestamp()));
-            String idMensaje = String.valueOf(msg.getTimestamp());
+            String time = "";
+            try {
+                time = sdf.format(new Date(Long.parseLong(msg.getTimestamp())));
+            } catch (NumberFormatException e) {
+                time = msg.getTimestamp() != null ? msg.getTimestamp() : "";
+            }
+            String idMensaje = msg.getId();
             addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje);
         }
 
@@ -374,6 +440,7 @@ public class ChatUI extends JFrame implements IChatView {
 
         selectDestinatarioPorIp(contacto.getIp());
         btnEnviarMensaje.setEnabled(true);
+        btnZumbido.setEnabled(true);
 
         scrollToBottom(panel);
     }
@@ -447,7 +514,7 @@ public class ChatUI extends JFrame implements IChatView {
     }
     
     private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje) {
-        boolean isDeleted = (text == null);
+        boolean isDeleted = (text == null || text.isEmpty());
 
         JPanel rowWrapper = new JPanel(new BorderLayout());
         rowWrapper.setOpaque(false);

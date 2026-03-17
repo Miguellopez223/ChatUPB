@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.ConnectException;
 import java.sql.*;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * DAO para la tabla 'contact'.
@@ -14,14 +15,14 @@ import java.util.List;
 public class ContactDao implements IContactDao {
 
     private DaoHelper<Contact> helper;
-    private long currentUserId;
+    private String currentUserId;
 
     public ContactDao() {
         this.helper = new DaoHelper<>();
-        this.currentUserId = 0;
+        this.currentUserId = null;
     }
 
-    public ContactDao(long currentUserId) {
+    public ContactDao(String currentUserId) {
         this.helper = new DaoHelper<>();
         this.currentUserId = currentUserId;
     }
@@ -31,34 +32,13 @@ public class ContactDao implements IContactDao {
         try (Connection conn = ConnectionDB.getInstance().getConection();
              Statement st = conn.createStatement()) {
 
-            // Verificar si la tabla existe
-            boolean tablaExiste = false;
-            try (ResultSet rs = conn.getMetaData().getTables(null, null, "contact", null)) {
-                if (rs.next()) {
-                    tablaExiste = true;
-                }
-            }
-
-            if (!tablaExiste) {
-                // Crear tabla nueva
-                st.execute("CREATE TABLE contact ("
-                        + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                        + "code TEXT NOT NULL UNIQUE, "
-                        + "name TEXT NOT NULL, "
-                        + "ip TEXT NOT NULL, "
-                        + "user_id INTEGER NOT NULL DEFAULT 0"
-                        + ")");
-            } else {
-                // Verificar si tiene user_id
-                boolean hasUserId = false;
-                try (ResultSet rs = conn.getMetaData().getColumns(null, null, "contact", "user_id")) {
-                    if (rs.next()) hasUserId = true;
-                }
-                if (!hasUserId) {
-                    log.info("Agregando columna user_id a tabla contact...");
-                    st.execute("ALTER TABLE contact ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
-                }
-            }
+            st.execute("CREATE TABLE IF NOT EXISTS contact ("
+                    + "id VARCHAR(36) PRIMARY KEY, "
+                    + "code TEXT DEFAULT NULL, "
+                    + "name TEXT DEFAULT NULL, "
+                    + "ip TEXT DEFAULT NULL, "
+                    + "user_id VARCHAR(36) DEFAULT NULL"
+                    + ")");
 
             // Crear indices si no existen
             st.execute("CREATE INDEX IF NOT EXISTS idx_contact_code ON contact(code)");
@@ -75,7 +55,7 @@ public class ContactDao implements IContactDao {
     DaoHelper.ResultReader<Contact> resultReader = result -> {
         Contact contact = new Contact();
         if (IContactDao.existColumn(result, Contact.Column.ID)) {
-            contact.setId(result.getLong(Contact.Column.ID));
+            contact.setId(result.getString(Contact.Column.ID));
         }
         if (IContactDao.existColumn(result, Contact.Column.CODE)) {
             contact.setCode(result.getString(Contact.Column.CODE));
@@ -87,7 +67,7 @@ public class ContactDao implements IContactDao {
             contact.setIp(result.getString(Contact.Column.IP));
         }
         if (IContactDao.existColumn(result, Contact.Column.USER_ID)) {
-            contact.setUserId(result.getLong(Contact.Column.USER_ID));
+            contact.setUserId(result.getString(Contact.Column.USER_ID));
         }
         return contact;
     };
@@ -103,15 +83,19 @@ public class ContactDao implements IContactDao {
 
     @Override
     public void save(Contact contact) throws Exception {
+        if (contact.getId() == null) {
+            contact.setId(UUID.randomUUID().toString());
+        }
         contact.setUserId(currentUserId);
-        String query = "INSERT INTO contact(code, name, ip, user_id) VALUES (?, ?, ?, ?)";
+        String query = "INSERT INTO contact(id, code, name, ip, user_id) VALUES (?, ?, ?, ?, ?)";
         DaoHelper.QueryParameters params = pst -> {
-            pst.setString(1, contact.getCode());
-            pst.setString(2, contact.getName());
-            pst.setString(3, contact.getIp());
-            pst.setLong(4, contact.getUserId());
+            pst.setString(1, contact.getId());
+            pst.setString(2, contact.getCode());
+            pst.setString(3, contact.getName());
+            pst.setString(4, contact.getIp());
+            pst.setString(5, contact.getUserId());
         };
-        helper.insert(query, params, contact);
+        helper.insert(query, params);
     }
 
     @Override
@@ -121,17 +105,17 @@ public class ContactDao implements IContactDao {
             pst.setString(1, contact.getIp());
             pst.setString(2, contact.getName());
             pst.setString(3, contact.getCode());
-            pst.setLong(4, currentUserId);
+            pst.setString(4, currentUserId);
         };
         helper.update(query, params);
     }
 
     @Override
-    public void delete(long id) throws ConnectException, SQLException {
+    public void delete(String id) throws ConnectException, SQLException {
         String query = "DELETE FROM contact WHERE id = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
-            pst.setLong(1, id);
-            pst.setLong(2, currentUserId);
+            pst.setString(1, id);
+            pst.setString(2, currentUserId);
         };
         helper.update(query, params);
     }
@@ -141,7 +125,7 @@ public class ContactDao implements IContactDao {
     @Override
     public List<Contact> findAll() throws ConnectException, SQLException {
         String query = "SELECT * FROM contact WHERE user_id = ? ORDER BY name ASC";
-        DaoHelper.QueryParameters params = pst -> pst.setLong(1, currentUserId);
+        DaoHelper.QueryParameters params = pst -> pst.setString(1, currentUserId);
         return helper.executeQuery(query, params, resultReader);
     }
 
@@ -150,7 +134,7 @@ public class ContactDao implements IContactDao {
         String query = "SELECT * FROM contact WHERE code = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, code);
-            pst.setLong(2, currentUserId);
+            pst.setString(2, currentUserId);
         };
         List<Contact> list = helper.executeQuery(query, params, resultReader);
         return list.isEmpty() ? null : list.get(0);
@@ -161,7 +145,7 @@ public class ContactDao implements IContactDao {
         String query = "SELECT * FROM contact WHERE ip = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, ip);
-            pst.setLong(2, currentUserId);
+            pst.setString(2, currentUserId);
         };
         List<Contact> list = helper.executeQuery(query, params, resultReader);
         return list.isEmpty() ? null : list.get(0);
@@ -172,7 +156,7 @@ public class ContactDao implements IContactDao {
         String query = "SELECT count(*) FROM contact WHERE code = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, code);
-            pst.setLong(2, currentUserId);
+            pst.setString(2, currentUserId);
         };
         return helper.executeQueryCount(query, params) >= 1;
     }

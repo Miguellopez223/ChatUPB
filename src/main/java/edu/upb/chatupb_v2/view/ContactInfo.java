@@ -6,19 +6,19 @@ package edu.upb.chatupb_v2.view;
  */
 public class ContactInfo {
 
-    private final long id;
+    private final String id;
     private final String code;
     private final String name;
     private final String ip;
 
-    public ContactInfo(long id, String code, String name, String ip) {
+    public ContactInfo(String id, String code, String name, String ip) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.ip = ip;
     }
 
-    public long getId() {
+    public String getId() {
         return id;
     }
 

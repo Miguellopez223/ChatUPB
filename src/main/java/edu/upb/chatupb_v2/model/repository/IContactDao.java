@@ -14,7 +14,7 @@ public interface IContactDao {
     void createTableIfNotExists();
     void save(Contact contact) throws Exception;
     void update(Contact contact) throws Exception;
-    void delete(long id) throws ConnectException, SQLException;
+    void delete(String id) throws ConnectException, SQLException;
     List<Contact> findAll() throws ConnectException, SQLException;
     Contact findByCode(String code) throws ConnectException, SQLException;
     Contact findByIp(String ip) throws ConnectException, SQLException;

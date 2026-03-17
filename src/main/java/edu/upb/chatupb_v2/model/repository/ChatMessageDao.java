@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.ConnectException;
 import java.sql.*;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * DAO para la tabla 'message'.
@@ -14,14 +15,14 @@ import java.util.List;
 public class ChatMessageDao {
 
     private DaoHelper<ChatMessage> helper;
-    private long currentUserId;
+    private String currentUserId;
 
     public ChatMessageDao() {
         this.helper = new DaoHelper<>();
-        this.currentUserId = 0;
+        this.currentUserId = null;
     }
 
-    public ChatMessageDao(long currentUserId) {
+    public ChatMessageDao(String currentUserId) {
         this.helper = new DaoHelper<>();
         this.currentUserId = currentUserId;
     }
@@ -30,62 +31,15 @@ public class ChatMessageDao {
         try (Connection conn = ConnectionDB.getInstance().getConection();
              Statement st = conn.createStatement()) {
 
-            // Verificar si la tabla existe
-            boolean tablaExiste = false;
-            try (ResultSet rs = conn.getMetaData().getTables(null, null, "message", null)) {
-                if (rs.next()) {
-                    tablaExiste = true;
-                }
-            }
-
-            if (!tablaExiste) {
-                // Crear tabla con schema correcta
-                st.execute("CREATE TABLE message ("
-                        + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                        + "sender_code TEXT NOT NULL, "
-                        + "receiver_code TEXT NOT NULL, "
-                        + "content TEXT, "
-                        + "timestamp INTEGER NOT NULL, "
-                        + "confirmed INTEGER NOT NULL DEFAULT 0, "
-                        + "user_id INTEGER NOT NULL DEFAULT 0"
-                        + ")");
-            } else {
-                // Verificar si tiene user_id
-                boolean hasUserId = false;
-                try (ResultSet rs = conn.getMetaData().getColumns(null, null, "message", "user_id")) {
-                    if (rs.next()) hasUserId = true;
-                }
-                if (!hasUserId) {
-                    log.info("Agregando columna user_id a tabla message...");
-                    st.execute("ALTER TABLE message ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
-                }
-
-                // Migrar content de NOT NULL a nullable (SQLite requiere recrear la tabla)
-                boolean contentIsNotNull = false;
-                try (ResultSet rs = st.executeQuery("PRAGMA table_info(message)")) {
-                    while (rs.next()) {
-                        if ("content".equals(rs.getString("name")) && rs.getInt("notnull") == 1) {
-                            contentIsNotNull = true;
-                            break;
-                        }
-                    }
-                }
-                if (contentIsNotNull) {
-                    log.info("Migrando columna content a nullable...");
-                    st.execute("CREATE TABLE message_tmp ("
-                            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                            + "sender_code TEXT NOT NULL, "
-                            + "receiver_code TEXT NOT NULL, "
-                            + "content TEXT, "
-                            + "timestamp INTEGER NOT NULL, "
-                            + "confirmed INTEGER NOT NULL DEFAULT 0, "
-                            + "user_id INTEGER NOT NULL DEFAULT 0"
-                            + ")");
-                    st.execute("INSERT INTO message_tmp SELECT * FROM message");
-                    st.execute("DROP TABLE message");
-                    st.execute("ALTER TABLE message_tmp RENAME TO message");
-                }
-            }
+            st.execute("CREATE TABLE IF NOT EXISTS message ("
+                    + "id VARCHAR(36) PRIMARY KEY, "
+                    + "sender_code TEXT DEFAULT NULL, "
+                    + "receiver_code TEXT DEFAULT NULL, "
+                    + "content TEXT DEFAULT NULL, "
+                    + "timestamp TEXT DEFAULT NULL, "
+                    + "confirmed INTEGER DEFAULT NULL, "
+                    + "user_id VARCHAR(36) DEFAULT NULL"
+                    + ")");
 
             // Crear indices si no existen
             st.execute("CREATE INDEX IF NOT EXISTS idx_message_conversation "
@@ -105,7 +59,7 @@ public class ChatMessageDao {
     DaoHelper.ResultReader<ChatMessage> resultReader = result -> {
         ChatMessage msg = new ChatMessage();
         if (ContactDao.existColumn(result, ChatMessage.Column.ID)) {
-            msg.setId(result.getLong(ChatMessage.Column.ID));
+            msg.setId(result.getString(ChatMessage.Column.ID));
         }
         if (ContactDao.existColumn(result, ChatMessage.Column.SENDER_CODE)) {
             msg.setSenderCode(result.getString(ChatMessage.Column.SENDER_CODE));
@@ -117,13 +71,14 @@ public class ChatMessageDao {
             msg.setContent(result.getString(ChatMessage.Column.CONTENT));
         }
         if (ContactDao.existColumn(result, ChatMessage.Column.TIMESTAMP)) {
-            msg.setTimestamp(result.getLong(ChatMessage.Column.TIMESTAMP));
+            msg.setTimestamp(result.getString(ChatMessage.Column.TIMESTAMP));
         }
         if (ContactDao.existColumn(result, ChatMessage.Column.CONFIRMED)) {
-            msg.setConfirmed(result.getInt(ChatMessage.Column.CONFIRMED) == 1);
+            int val = result.getInt(ChatMessage.Column.CONFIRMED);
+            msg.setConfirmed(!result.wasNull() && val == 1);
         }
         if (ContactDao.existColumn(result, ChatMessage.Column.USER_ID)) {
-            msg.setUserId(result.getLong(ChatMessage.Column.USER_ID));
+            msg.setUserId(result.getString(ChatMessage.Column.USER_ID));
         }
         return msg;
     };
@@ -131,17 +86,22 @@ public class ChatMessageDao {
     // --- CRUD ---
 
     public void save(ChatMessage message) throws Exception {
-        String query = "INSERT INTO message(sender_code, receiver_code, content, timestamp, confirmed, user_id) "
-                + "VALUES (?, ?, ?, ?, ?, ?)";
+        if (message.getId() == null) {
+            message.setId(UUID.randomUUID().toString());
+        }
+        message.setUserId(currentUserId);
+        String query = "INSERT OR IGNORE INTO message(id, sender_code, receiver_code, content, timestamp, confirmed, user_id) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         DaoHelper.QueryParameters params = pst -> {
-            pst.setString(1, message.getSenderCode());
-            pst.setString(2, message.getReceiverCode());
-            pst.setString(3, message.getContent());
-            pst.setLong(4, message.getTimestamp());
-            pst.setInt(5, message.isConfirmed() ? 1 : 0);
-            pst.setLong(6, currentUserId);
+            pst.setString(1, message.getId());
+            pst.setString(2, message.getSenderCode());
+            pst.setString(3, message.getReceiverCode());
+            pst.setString(4, message.getContent());
+            pst.setString(5, message.getTimestamp());
+            pst.setInt(6, message.isConfirmed() ? 1 : 0);
+            pst.setString(7, message.getUserId());
         };
-        helper.insert(query, params, message);
+        helper.insert(query, params);
     }
 
     // --- Queries ---
@@ -158,16 +118,16 @@ public class ChatMessageDao {
             pst.setString(2, contactCode);
             pst.setString(3, contactCode);
             pst.setString(4, myCode);
-            pst.setLong(5, currentUserId);
+            pst.setString(5, currentUserId);
         };
         return helper.executeQuery(query, params, resultReader);
     }
 
     public void markConfirmed(String idMensaje) throws ConnectException, SQLException {
-        String query = "UPDATE message SET confirmed = 1 WHERE timestamp = ? AND confirmed = 0 AND user_id = ?";
+        String query = "UPDATE message SET confirmed = 1 WHERE id = ? AND confirmed = 0 AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
-            pst.setLong(1, Long.parseLong(idMensaje));
-            pst.setLong(2, currentUserId);
+            pst.setString(1, idMensaje);
+            pst.setString(2, currentUserId);
         };
         helper.update(query, params);
     }
@@ -184,7 +144,7 @@ public class ChatMessageDao {
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, contactCode);
             pst.setString(2, myCode);
-            pst.setLong(3, currentUserId);
+            pst.setString(3, currentUserId);
         };
         return helper.executeQuery(query, params, resultReader);
     }
@@ -200,7 +160,7 @@ public class ChatMessageDao {
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, contactCode);
             pst.setString(2, myCode);
-            pst.setLong(3, currentUserId);
+            pst.setString(3, currentUserId);
         };
         helper.update(query, params);
     }
@@ -210,10 +170,10 @@ public class ChatMessageDao {
      * Se usa cuando se recibe la trama 009.
      */
     public void setContentNull(String idMensaje) throws ConnectException, SQLException {
-        String query = "UPDATE message SET content = NULL WHERE timestamp = ? AND user_id = ?";
+        String query = "UPDATE message SET content = '' WHERE id = ? AND user_id = ?";
         DaoHelper.QueryParameters params = pst -> {
-            pst.setLong(1, Long.parseLong(idMensaje));
-            pst.setLong(2, currentUserId);
+            pst.setString(1, idMensaje);
+            pst.setString(2, currentUserId);
         };
         helper.update(query, params);
     }
@@ -229,7 +189,7 @@ public class ChatMessageDao {
             pst.setString(2, contactCode);
             pst.setString(3, contactCode);
             pst.setString(4, myCode);
-            pst.setLong(5, currentUserId);
+            pst.setString(5, currentUserId);
         };
         helper.update(query, params);
     }

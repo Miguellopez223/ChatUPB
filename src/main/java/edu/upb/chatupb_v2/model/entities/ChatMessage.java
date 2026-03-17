@@ -21,16 +21,16 @@ public class ChatMessage implements Serializable, Model {
         public static final String USER_ID = "user_id";
     }
 
-    private long id;
+    private String id;
     private String senderCode;
     private String receiverCode;
     private String content;
-    private long timestamp;
+    private String timestamp;
     private boolean confirmed;
-    private long userId;
+    private String userId;
 
     @Override
-    public void setId(long id) {
+    public void setId(String id) {
         this.id = id;
     }
 }
