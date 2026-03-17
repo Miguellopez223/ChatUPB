@@ -12,14 +12,23 @@ public class ChatMessageInfo {
     private final boolean confirmed;
     private final boolean mine;
     private final boolean pinned;
+    private final boolean viewOnce; // <-- Nuevo campo para Trama 012
 
+    // Constructor original (por retrocompatibilidad)
     public ChatMessageInfo(String id, String senderCode, String content, String timestamp,
                            boolean confirmed, boolean mine) {
-        this(id, senderCode, content, timestamp, confirmed, mine, false);
+        this(id, senderCode, content, timestamp, confirmed, mine, false, false);
     }
 
+    // Constructor con pinned (por retrocompatibilidad)
     public ChatMessageInfo(String id, String senderCode, String content, String timestamp,
                            boolean confirmed, boolean mine, boolean pinned) {
+        this(id, senderCode, content, timestamp, confirmed, mine, pinned, false);
+    }
+
+    // <-- NUEVO CONSTRUCTOR COMPLETO (8 parámetros) que usa el MessageController
+    public ChatMessageInfo(String id, String senderCode, String content, String timestamp,
+                           boolean confirmed, boolean mine, boolean pinned, boolean viewOnce) {
         this.id = id;
         this.senderCode = senderCode;
         this.content = content;
@@ -27,6 +36,7 @@ public class ChatMessageInfo {
         this.confirmed = confirmed;
         this.mine = mine;
         this.pinned = pinned;
+        this.viewOnce = viewOnce;
     }
 
     public String getId() {
@@ -55,5 +65,9 @@ public class ChatMessageInfo {
 
     public boolean isPinned() {
         return pinned;
+    }
+
+    public boolean isViewOnce() {
+        return viewOnce;
     }
 }

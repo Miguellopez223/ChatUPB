@@ -48,6 +48,10 @@ public class ChatMessageDao {
                 // La columna ya existe, ignorar
             }
 
+            try {
+                st.execute("ALTER TABLE message ADD COLUMN view_once INTEGER DEFAULT 0");
+            } catch (SQLException ignored) {}
+
             // Crear indices si no existen
             st.execute("CREATE INDEX IF NOT EXISTS idx_message_conversation "
                     + "ON message(sender_code, receiver_code)");
@@ -91,6 +95,10 @@ public class ChatMessageDao {
         if (ContactDao.existColumn(result, ChatMessage.Column.USER_ID)) {
             msg.setUserId(result.getString(ChatMessage.Column.USER_ID));
         }
+        if (ContactDao.existColumn(result, ChatMessage.Column.VIEW_ONCE)) {
+            int voVal = result.getInt(ChatMessage.Column.VIEW_ONCE);
+            msg.setViewOnce(!result.wasNull() && voVal == 1);
+        }
         return msg;
     };
 
@@ -101,8 +109,8 @@ public class ChatMessageDao {
             message.setId(UUID.randomUUID().toString());
         }
         message.setUserId(currentUserId);
-        String query = "INSERT OR IGNORE INTO message(id, sender_code, receiver_code, content, timestamp, confirmed, pinned, user_id) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT OR IGNORE INTO message(id, sender_code, receiver_code, content, timestamp, confirmed, pinned, view_once, user_id) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         DaoHelper.QueryParameters params = pst -> {
             pst.setString(1, message.getId());
             pst.setString(2, message.getSenderCode());
@@ -111,7 +119,8 @@ public class ChatMessageDao {
             pst.setString(5, message.getTimestamp());
             pst.setInt(6, message.isConfirmed() ? 1 : 0);
             pst.setInt(7, message.isPinned() ? 1 : 0);
-            pst.setString(8, message.getUserId());
+            pst.setInt(8, message.isViewOnce() ? 1 : 0);
+            pst.setString(9, message.getUserId());
         };
         helper.insert(query, params);
     }
@@ -267,5 +276,15 @@ public class ChatMessageDao {
             pst.setString(5, currentUserId);
         };
         helper.update(query, params);
+    }
+
+    public ChatMessage findById(String idMensaje) throws ConnectException, SQLException {
+        String query = "SELECT * FROM message WHERE id = ? AND user_id = ?";
+        DaoHelper.QueryParameters params = pst -> {
+            pst.setString(1, idMensaje);
+            pst.setString(2, currentUserId);
+        };
+        List<ChatMessage> list = helper.executeQuery(query, params, resultReader);
+        return list.isEmpty() ? null : list.get(0);
     }
 }

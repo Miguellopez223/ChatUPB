@@ -146,6 +146,13 @@ public class SocketClient extends Thread {
                         }
                         break;
                     }
+                    case "012": {
+                        edu.upb.chatupb_v2.model.network.message.MensajeUnico msgUnico = edu.upb.chatupb_v2.model.network.message.MensajeUnico.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onMensajeUnicoRecibido(msgUnico, this);
+                        }
+                        break;
+                    }
                 }
             }
         } catch (IOException e) {

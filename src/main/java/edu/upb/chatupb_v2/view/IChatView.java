@@ -17,7 +17,10 @@ public interface IChatView {
     // --- Chat Area ---
     void appendChat(String texto);
     void appendChatToContact(String ip, String texto);
-    void appendMensajeToContact(String ip, String content, boolean isMine, String idMensaje);
+
+    // ACTUALIZADO: Se añade el parametro boolean viewOnce al final
+    void appendMensajeToContact(String ip, String content, boolean isMine, String idMensaje, boolean viewOnce);
+
     void actualizarCheckMensaje(String ip, String idMensaje);
     void actualizarBurbujaMensajeEliminado(String ip, String idMensaje);
     void abrirChatConContacto(ContactInfo contacto, List<ChatMessageInfo> historial);
@@ -33,7 +36,7 @@ public interface IChatView {
     boolean mostrarDialogoInvitacion(String nombre, String ip);
     void mostrarError(String mensaje);
     void agregarConexionUI(String ip, String nombre);
-    void limpiarConexionesUI(); // Nuevo metodo para limpiar conexiones visuales
+    void limpiarConexionesUI();
     void actualizarEstado(int numConexiones);
     void refrescarEstadoContactos();
     void actualizarEstadoInvitacion(String ip);

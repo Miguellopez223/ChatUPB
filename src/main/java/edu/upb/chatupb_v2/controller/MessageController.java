@@ -23,7 +23,7 @@ public class MessageController {
         this.messageDao = new ChatMessageDao(user.getId());
     }
 
-    public ChatMessage guardarMensajeEnviado(String receiverCode, String content, String idMensaje, String timestamp) {
+    public ChatMessage guardarMensajeEnviado(String receiverCode, String content, String idMensaje, String timestamp, boolean viewOnce) {
         if (currentUser == null) return null;
         ChatMessage msg = ChatMessage.builder()
                 .id(idMensaje)
@@ -32,6 +32,7 @@ public class MessageController {
                 .content(content)
                 .timestamp(timestamp)
                 .confirmed(false)
+                .viewOnce(viewOnce) // Agregado para trama 012
                 .build();
         try {
             messageDao.save(msg);
@@ -41,7 +42,7 @@ public class MessageController {
         return msg;
     }
 
-    public ChatMessage guardarMensajeRecibido(String senderCode, String content, String idMensaje, String timestamp) {
+    public ChatMessage guardarMensajeRecibido(String senderCode, String content, String idMensaje, String timestamp, boolean viewOnce) {
         if (currentUser == null) return null;
         ChatMessage msg = ChatMessage.builder()
                 .id(idMensaje)
@@ -50,6 +51,7 @@ public class MessageController {
                 .content(content)
                 .timestamp(timestamp)
                 .confirmed(false)
+                .viewOnce(viewOnce) // Agregado para trama 012
                 .build();
         try {
             messageDao.save(msg);
@@ -72,13 +74,25 @@ public class MessageController {
                         m.getTimestamp(),
                         m.isConfirmed(),
                         m.getSenderCode().equals(currentUser.getCode()),
-                        m.isPinned()
+                        m.isPinned(),
+                        m.isViewOnce() // Agregado mapeo de viewOnce
                 ));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return result;
+    }
+
+    // --- NUEVO METODO PARA TRAMA 012 ---
+    public ChatMessage obtenerMensajePorId(String idMensaje) {
+        if (currentUser == null) return null;
+        try {
+            return messageDao.findById(idMensaje);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public void marcarConfirmado(String idMensaje) {
@@ -167,7 +181,8 @@ public class MessageController {
                     m.getTimestamp(),
                     m.isConfirmed(),
                     m.getSenderCode().equals(currentUser.getCode()),
-                    m.isPinned()
+                    m.isPinned(),
+                    m.isViewOnce() // Agregado mapeo de viewOnce
             );
         } catch (Exception e) {
             e.printStackTrace();

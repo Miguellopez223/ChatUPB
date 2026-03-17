@@ -269,4 +269,11 @@ public class Mediador implements ChatEventListener {
             listener.onFijarMensajeRecibido(fijar, sender);
         }
     }
+
+    @Override
+    public void onMensajeUnicoRecibido(edu.upb.chatupb_v2.model.network.message.MensajeUnico msg, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onMensajeUnicoRecibido(msg, sender);
+        }
+    }
 }

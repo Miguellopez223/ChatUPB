@@ -40,10 +40,8 @@ public class ChatController implements ChatEventListener {
             List<User> users = userDao.findAll();
             view.setUserList(users);
             if (!users.isEmpty()) {
-                // Seleccionar el primer usuario por defecto
                 cambiarUsuario(users.get(0));
             } else {
-                // No hay usuarios, pedir a la vista que solicite uno nuevo
                 view.showNewUserDialog();
             }
         } catch (Exception e) {
@@ -55,20 +53,17 @@ public class ChatController implements ChatEventListener {
     public void cambiarUsuario(User user) {
         if (user == null) return;
 
-        // 1. Cerrar conexiones anteriores y limpiar estado de red
         Mediador.getInstancia().cerrarTodasLasConexiones();
         nombresConectados.clear();
         codigosConectados.clear();
         view.limpiarConexionesUI();
 
-        // 2. Cambiar contexto al nuevo usuario
         this.currentUser = user;
         contactController.setUsuario(user);
         messageController.setUsuario(user);
         view.setScreenTitle("Chat P2P - " + user.getName());
         view.clearChatHistory();
 
-        // 3. Iniciar descubrimiento de red (Hello)
         iniciarHello();
     }
 
@@ -83,10 +78,8 @@ public class ChatController implements ChatEventListener {
                     .name(name)
                     .build();
             userDao.save(newUser);
-            // Recargar la lista de usuarios en la UI
             List<User> users = userDao.findAll();
             view.setUserList(users);
-            // Cambiar al nuevo usuario
             cambiarUsuario(newUser);
         } catch (Exception e) {
             e.printStackTrace();
@@ -132,14 +125,16 @@ public class ChatController implements ChatEventListener {
         }
 
         if (contactCode != null) {
-            messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp);
+            // Pasamos 'false' porque es un mensaje normal
+            messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp, false);
         }
 
         if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
             try {
                 EnvioMensaje envio = new EnvioMensaje(currentUser.getCode(), idMensaje, mensaje);
                 Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
-                view.appendMensajeToContact(ip, mensaje, true, idMensaje);
+                // Pasamos 'false' en viewOnce
+                view.appendMensajeToContact(ip, mensaje, true, idMensaje, false);
             } catch (Exception ex) {
                 ex.printStackTrace();
                 view.appendChatToContact(ip, "[Error al enviar mensaje]\n");
@@ -150,29 +145,80 @@ public class ChatController implements ChatEventListener {
         view.limpiarMensaje();
     }
 
+    // --- NUEVA LÓGICA: Enviar Mensaje Único (Trama 012) ---
+    public void enviarMensajeUnico(String ip, String mensaje) {
+        if (currentUser == null) return;
+        String idMensaje = UUID.randomUUID().toString();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        String contactCode = codigosConectados.get(ip);
+        if (contactCode == null) {
+            contactCode = contactController.buscarCodigoPorIp(ip);
+        }
+
+        if (contactCode != null) {
+            // Guardamos indicando viewOnce = true
+            messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp, true);
+        }
+
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                MensajeUnico envio = new MensajeUnico(currentUser.getCode(), idMensaje, mensaje);
+                Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+                // Mostramos en la UI con viewOnce = true
+                view.appendMensajeToContact(ip, mensaje, true, idMensaje, true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                view.appendChatToContact(ip, "[Error al enviar mensaje único]\n");
+            }
+        } else {
+            view.appendChatToContact(ip, "[Pendiente - contacto sin conexión]\n");
+        }
+        view.limpiarMensaje();
+    }
+
+    // --- NUEVA LÓGICA: Acción del botón Leído del PopUp ---
+    public void abrirMensajeUnico(String ip, String idMensaje) {
+        if (currentUser == null) return;
+
+        // 1. Enviar 008 (Confirmación) al remitente para que sepa que lo abrimos
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                ConfirmacionMensaje conf = new ConfirmacionMensaje(idMensaje);
+                Mediador.getInstancia().enviarMensaje(ip, conf.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        messageController.marcarConfirmado(idMensaje);
+
+        // 2. Enviar 009 y eliminar localmente (Autodestrucción en BD y UI)
+        eliminarMensaje(ip, idMensaje);
+    }
+
     public void abrirChat(ContactInfo contacto) {
         if (currentUser == null) return;
 
-        // Enviar 008 para mensajes recibidos no confirmados (el usuario esta "viendo" el chat)
         List<ChatMessage> noConfirmados = messageController.obtenerNoConfirmadosRecibidos(contacto.getCode());
         if (!noConfirmados.isEmpty() && nombresConectados.containsKey(contacto.getIp())
                 && Mediador.getInstancia().existe(contacto.getIp())) {
             for (ChatMessage msg : noConfirmados) {
-                try {
-                    ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getId());
-                    Mediador.getInstancia().enviarMensaje(contacto.getIp(), conf.generarTrama());
-                } catch (Exception e) {
-                    e.printStackTrace();
+                // No enviamos confirmacion automatica a los view_once pendientes (para evitar que se autodestruyan sin abrir)
+                if (!msg.isViewOnce()) {
+                    try {
+                        ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getId());
+                        Mediador.getInstancia().enviarMensaje(contacto.getIp(), conf.generarTrama());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
-        // Marcar todos los recibidos como vistos en la BD
         messageController.marcarRecibidosComoVistos(contacto.getCode());
 
         List<ChatMessageInfo> historial = messageController.cargarHistorial(contacto.getCode());
         view.abrirChatConContacto(contacto, historial);
 
-        // Cargar mensaje fijado si existe
         ChatMessageInfo fijado = messageController.obtenerMensajeFijado(contacto.getCode());
         if (fijado != null) {
             view.mostrarMensajeFijado(contacto.getIp(), fijado);
@@ -214,6 +260,19 @@ public class ChatController implements ChatEventListener {
     @Override
     public void onMensajeRecibido(EnvioMensaje msg, SocketClient sender) {
         SwingUtilities.invokeLater(() -> procesarMensajeRecibido(msg, sender));
+    }
+
+    // --- NUEVO LISTENER: Trama 012 Recibida ---
+    @Override
+    public void onMensajeUnicoRecibido(MensajeUnico msg, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> {
+            String contactCode = codigosConectados.get(sender.getIp());
+            if (contactCode != null) {
+                messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), msg.getIdMensaje(), String.valueOf(System.currentTimeMillis()), true);
+            }
+            // Agrega a la UI con viewOnce = true. NO manda el 008 automáticamente.
+            view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje(), true);
+        });
     }
 
     @Override
@@ -286,12 +345,11 @@ public class ChatController implements ChatEventListener {
         if (contactCode != null) {
             String idMensaje = msg.getIdMensaje();
             String timestamp = String.valueOf(System.currentTimeMillis());
-            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), idMensaje, timestamp);
+            messageController.guardarMensajeRecibido(contactCode, msg.getContenido(), idMensaje, timestamp, false);
         }
 
-        view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje());
+        view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje(), false);
 
-        // Si el usuario ya tiene abierto el chat de este contacto, enviar 008 automaticamente
         if (sender.getIp().equals(view.getContactoActivo())) {
             try {
                 ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
@@ -301,12 +359,18 @@ public class ChatController implements ChatEventListener {
                 e.printStackTrace();
             }
         }
-        // Si no esta en el chat, el 008 se enviara cuando abra el chat (en abrirChat)
     }
 
     private void procesarConfirmacion(ConfirmacionMensaje conf, SocketClient sender) {
         messageController.marcarConfirmado(conf.getIdMensaje());
         view.actualizarCheckMensaje(sender.getIp(), conf.getIdMensaje());
+
+        // LÓGICA MENSAJE ÚNICO: Si el mensaje recién confirmado era view_once (012),
+        // disparamos la eliminación lógica y mandamos 009 de vuelta al receptor.
+        ChatMessage msg = messageController.obtenerMensajePorId(conf.getIdMensaje());
+        if (msg != null && msg.isViewOnce()) {
+            eliminarMensaje(sender.getIp(), conf.getIdMensaje());
+        }
     }
 
     private void procesarEliminacion(EliminacionMensaje elim, SocketClient sender) {
@@ -329,9 +393,6 @@ public class ChatController implements ChatEventListener {
         view.actualizarBurbujaMensajeEliminado(ip, idMensaje);
     }
 
-    /**
-     * Fija un mensaje localmente y envia trama 011 al contacto.
-     */
     public void fijarMensaje(String ip, String idMensaje) {
         if (currentUser == null) return;
 
@@ -340,32 +401,26 @@ public class ChatController implements ChatEventListener {
             contactCode = contactController.buscarCodigoPorIp(ip);
         }
 
-        // Obtener mensaje fijado anterior para desmarcar burbuja
         ChatMessageInfo anteriorFijado = null;
         if (contactCode != null) {
             anteriorFijado = messageController.obtenerMensajeFijado(contactCode);
         }
 
-        // Fijar en BD
         if (contactCode != null) {
             messageController.fijarMensaje(idMensaje, contactCode);
         }
 
-        // Desmarcar burbuja anterior
         if (anteriorFijado != null) {
             view.desmarcarBurbujaFijada(ip, anteriorFijado.getId());
         }
 
-        // Marcar nueva burbuja
         view.marcarBurbujaFijada(ip, idMensaje);
 
-        // Mostrar barra de fijado
         ChatMessageInfo nuevoFijado = (contactCode != null) ? messageController.obtenerMensajeFijado(contactCode) : null;
         if (nuevoFijado != null) {
             view.mostrarMensajeFijado(ip, nuevoFijado);
         }
 
-        // Enviar trama 011 al contacto
         if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
             try {
                 FijarMensaje fijar = new FijarMensaje(idMensaje);
@@ -376,19 +431,10 @@ public class ChatController implements ChatEventListener {
         }
     }
 
-    /**
-     * Desfija un mensaje localmente y notifica al contacto.
-     */
     public void desfijarMensaje(String ip, String idMensaje) {
         if (currentUser == null) return;
-
-        // Desfijar en BD
         messageController.desfijarMensaje(idMensaje);
-
-        // Desmarcar burbuja
         view.desmarcarBurbujaFijada(ip, idMensaje);
-
-        // Ocultar barra
         view.ocultarMensajeFijado(ip);
     }
 
@@ -397,21 +443,15 @@ public class ChatController implements ChatEventListener {
         String contactCode = codigosConectados.get(sender.getIp());
 
         if (contactCode != null) {
-            // Obtener mensaje fijado anterior
             ChatMessageInfo anteriorFijado = messageController.obtenerMensajeFijado(contactCode);
-
-            // Fijar en BD
             messageController.fijarMensaje(idMensaje, contactCode);
 
-            // Desmarcar burbuja anterior
             if (anteriorFijado != null) {
                 view.desmarcarBurbujaFijada(sender.getIp(), anteriorFijado.getId());
             }
 
-            // Marcar nueva burbuja
             view.marcarBurbujaFijada(sender.getIp(), idMensaje);
 
-            // Mostrar barra si el chat esta activo
             ChatMessageInfo nuevoFijado = messageController.obtenerMensajeFijado(contactCode);
             if (nuevoFijado != null) {
                 view.mostrarMensajeFijado(sender.getIp(), nuevoFijado);
@@ -434,7 +474,6 @@ public class ChatController implements ChatEventListener {
                 e.printStackTrace();
             }
         }
-        // Tambien hacer vibrar mi propia ventana
         String miNombre = view.getMiNombre();
         view.mostrarZumbido(ip, miNombre != null ? miNombre : "Tu");
     }

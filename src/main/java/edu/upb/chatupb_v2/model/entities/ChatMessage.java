@@ -20,6 +20,7 @@ public class ChatMessage implements Serializable, Model {
         public static final String CONFIRMED = "confirmed";
         public static final String PINNED = "pinned";
         public static final String USER_ID = "user_id";
+        public static final String VIEW_ONCE = "view_once";
     }
 
     private String id;
@@ -30,6 +31,7 @@ public class ChatMessage implements Serializable, Model {
     private boolean confirmed;
     private boolean pinned;
     private String userId;
+    private boolean viewOnce;
 
     @Override
     public void setId(String id) {

@@ -24,4 +24,5 @@ public interface ChatEventListener {
     void onEliminacionRecibida(EliminacionMensaje elim, SocketClient sender);
     void onZumbidoRecibido(Zumbido zumbido, SocketClient sender);
     void onFijarMensajeRecibido(FijarMensaje fijar, SocketClient sender);
+    void onMensajeUnicoRecibido(edu.upb.chatupb_v2.model.network.message.MensajeUnico msg, SocketClient sender);
 }

@@ -30,6 +30,7 @@ public class ChatUI extends JFrame implements IChatView {
     private JTextField txtMensaje;
     private JButton btnEnviarMensaje;
     private JButton btnZumbido;
+    private JButton btnMensajeUnico; // NUEVO: Boton para Trama 012
     private DefaultComboBoxModel<String> modeloDestinatarios;
     private JComboBox<String> comboDestinatarios;
 
@@ -45,24 +46,18 @@ public class ChatUI extends JFrame implements IChatView {
     private String contactoActivo = null;
     private JScrollPane scrollChatActual;
 
-    // Mapa de idMensaje -> JLabel de checks para actualizar de ✓ a ✓✓
+    // Mapas para actualizar UI de mensajes
     private final HashMap<String, JLabel> checkLabels = new HashMap<>();
-
-    // Mapa de idMensaje -> JLabel del contenido para actualizar al eliminar
     private final HashMap<String, JLabel> messageLabels = new HashMap<>();
-
-    // Mapa de idMensaje -> JPanel burbuja para cambiar color al eliminar
     private final HashMap<String, RoundedPanel> bubblePanels = new HashMap<>();
-
-    // Mapa de idMensaje -> JLabel pin para agregar/quitar indicador de fijado
     private final HashMap<String, JLabel> pinLabels = new HashMap<>();
 
     // Barra de mensaje fijado en la parte superior del chat
     private JPanel pinnedMessageBar;
     private JLabel pinnedMessageLabel;
     private JButton pinnedUnpinButton;
-    private String pinnedMessageId = null; // ID del mensaje actualmente fijado en la UI
-    private String previousPinnedId = null; // ID del mensaje fijado anterior (para desmarcar burbuja)
+    private String pinnedMessageId = null;
+    private String previousPinnedId = null;
 
     // User selection
     private JComboBox<User> userComboBox;
@@ -106,20 +101,19 @@ public class ChatUI extends JFrame implements IChatView {
         btnEnviarInvitacion = new JButton("Enviar Invitacion");
         panelConexion.add(btnEnviarInvitacion);
 
-        // --- TOP PANEL WRAPPER ---
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(userPanel, BorderLayout.NORTH);
         topPanel.add(panelConexion, BorderLayout.CENTER);
 
         // --- BARRA DE MENSAJE FIJADO ---
         pinnedMessageBar = new JPanel(new BorderLayout(5, 0));
-        pinnedMessageBar.setBackground(new Color(255, 248, 220)); // Amarillo claro
+        pinnedMessageBar.setBackground(new Color(255, 248, 220));
         pinnedMessageBar.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 200, 160)),
                 new EmptyBorder(6, 10, 6, 10)
         ));
 
-        JLabel pinIcon = new JLabel("\uD83D\uDCCC"); // emoji pin
+        JLabel pinIcon = new JLabel("\uD83D\uDCCC");
         pinIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         pinnedMessageBar.add(pinIcon, BorderLayout.WEST);
 
@@ -129,7 +123,7 @@ public class ChatUI extends JFrame implements IChatView {
         pinnedMessageLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         pinnedMessageBar.add(pinnedMessageLabel, BorderLayout.CENTER);
 
-        pinnedUnpinButton = new JButton("\u2715"); // X
+        pinnedUnpinButton = new JButton("\u2715");
         pinnedUnpinButton.setFont(new Font("SansSerif", Font.BOLD, 12));
         pinnedUnpinButton.setMargin(new Insets(0, 4, 0, 4));
         pinnedUnpinButton.setFocusPainted(false);
@@ -142,18 +136,17 @@ public class ChatUI extends JFrame implements IChatView {
             }
         });
         pinnedMessageBar.add(pinnedUnpinButton, BorderLayout.EAST);
-        pinnedMessageBar.setVisible(false); // Oculta por defecto
+        pinnedMessageBar.setVisible(false);
 
-        // --- 2. PANEL CENTRAL: Area de Chat (intercambiable por contacto) ---
+        // --- 2. PANEL CENTRAL: Area de Chat ---
         areaChat = new JTextArea("Selecciona un usuario para comenzar.\n");
         areaChat.setEditable(false);
-        // Inicialmente mostramos areaChat (logs globales)
         scrollChatActual = new JScrollPane(areaChat);
         scrollChatActual.setBorder(new TitledBorder("2. Conversacion"));
         scrollChatActual.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollChatActual.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
 
-        // --- 3. PANEL INFERIOR: Seleccion de destinatario y envio de mensajes ---
+        // --- 3. PANEL INFERIOR: Envio de mensajes ---
         JPanel panelMensaje = new JPanel(new BorderLayout(5, 5));
         panelMensaje.setBorder(new TitledBorder("3. Enviar Mensaje de Texto"));
 
@@ -165,13 +158,23 @@ public class ChatUI extends JFrame implements IChatView {
 
         JPanel panelInput = new JPanel(new BorderLayout(5, 0));
         txtMensaje = new JTextField();
+
+        // Botones de envio
         btnEnviarMensaje = new JButton("Enviar");
         btnEnviarMensaje.setEnabled(false);
+
         btnZumbido = new JButton("\uD83D\uDCA5 Zumbido");
         btnZumbido.setEnabled(false);
+
+        btnMensajeUnico = new JButton("\uD83D\uDCA3 Ver 1 Vez");
+        btnMensajeUnico.setEnabled(false);
+        btnMensajeUnico.setBackground(new Color(255, 200, 200));
+
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         panelBotones.add(btnZumbido);
+        panelBotones.add(btnMensajeUnico);
         panelBotones.add(btnEnviarMensaje);
+
         panelInput.add(txtMensaje, BorderLayout.CENTER);
         panelInput.add(panelBotones, BorderLayout.EAST);
 
@@ -196,7 +199,6 @@ public class ChatUI extends JFrame implements IChatView {
         tablaContactos.getColumnModel().getColumn(0).setPreferredWidth(90);
         tablaContactos.getColumnModel().getColumn(1).setPreferredWidth(100);
         tablaContactos.getColumnModel().getColumn(2).setPreferredWidth(50);
-
         tablaContactos.getColumnModel().getColumn(2).setCellRenderer(new EstadoConexionRenderer());
 
         JScrollPane scrollContactos = new JScrollPane(tablaContactos);
@@ -205,18 +207,17 @@ public class ChatUI extends JFrame implements IChatView {
         JButton btnEliminarContacto = new JButton("Eliminar");
         panelContactos.add(btnEliminarContacto, BorderLayout.SOUTH);
 
-        // --- WRAPPER CENTRAL: barra fijado + chat ---
+        // --- WRAPPER CENTRAL ---
         JPanel chatWrapper = new JPanel(new BorderLayout());
         chatWrapper.add(pinnedMessageBar, BorderLayout.NORTH);
         chatWrapper.add(scrollChatActual, BorderLayout.CENTER);
 
-        // --- AGREGAR PANELES A LA VENTANA ---
         add(panelContactos, BorderLayout.WEST);
         add(topPanel, BorderLayout.NORTH);
         add(chatWrapper, BorderLayout.CENTER);
         add(panelMensaje, BorderLayout.SOUTH);
 
-        // --- CONFIGURAR BOTONES ---
+        // --- EVENTOS ---
         userComboBox.addActionListener(e -> {
             User selectedUser = (User) userComboBox.getSelectedItem();
             if (selectedUser != null) {
@@ -228,8 +229,14 @@ public class ChatUI extends JFrame implements IChatView {
         btnEnviarMensaje.addActionListener(e -> enviarMensajeChat());
         btnZumbido.addActionListener(e -> enviarZumbido());
         btnEliminarContacto.addActionListener(e -> eliminarContacto());
-
         txtMensaje.addActionListener(e -> enviarMensajeChat());
+
+        // Evento para el boton de Mensaje Unico
+        btnMensajeUnico.addActionListener(e -> {
+            String msg = txtMensaje.getText().trim();
+            if (msg.isEmpty() || contactoActivo == null) return;
+            chatController.enviarMensajeUnico(contactoActivo, msg);
+        });
 
         tablaContactos.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
@@ -308,7 +315,6 @@ public class ChatUI extends JFrame implements IChatView {
 
     @Override
     public void mostrarZumbido(String ip, String nombreContacto) {
-        // Mostrar mensaje de sistema en el chat
         JPanel panel = getOrCreateChatPanel(ip);
         addSystemLabel(panel, "\uD83D\uDCA5 " + nombreContacto + " ha enviado un zumbido!");
         if (ip.equals(contactoActivo)) {
@@ -316,11 +322,10 @@ public class ChatUI extends JFrame implements IChatView {
             scrollToBottom(panel);
         }
 
-        // Animacion de temblor (shake) de toda la ventana
         final Point posOriginal = getLocation();
-        final int duracion = 500; // milisegundos totales
-        final int intervalo = 30; // ms entre cada movimiento
-        final int intensidad = 8; // pixeles de desplazamiento
+        final int duracion = 500;
+        final int intervalo = 30;
+        final int intensidad = 8;
 
         Timer shakeTimer = new Timer(intervalo, null);
         final long[] inicio = {System.currentTimeMillis()};
@@ -336,8 +341,6 @@ public class ChatUI extends JFrame implements IChatView {
             }
         });
         shakeTimer.start();
-
-        // Sonido de sistema (beep)
         Toolkit.getDefaultToolkit().beep();
     }
 
@@ -368,7 +371,6 @@ public class ChatUI extends JFrame implements IChatView {
 
     @Override
     public void appendChat(String texto) {
-        // Logs globales van al JTextArea por defecto
         areaChat.append(texto);
         areaChat.setCaretPosition(areaChat.getDocument().getLength());
     }
@@ -415,12 +417,14 @@ public class ChatUI extends JFrame implements IChatView {
             if (contactoActivo == null) {
                 btnEnviarMensaje.setEnabled(false);
                 btnZumbido.setEnabled(false);
+                btnMensajeUnico.setEnabled(false);
             }
         } else {
             lblEstado.setText("Estado: " + numConexiones + " conexion(es) activa(s)");
             lblEstado.setForeground(new Color(0, 153, 0));
             btnEnviarMensaje.setEnabled(true);
             btnZumbido.setEnabled(true);
+            btnMensajeUnico.setEnabled(true);
         }
     }
 
@@ -449,13 +453,11 @@ public class ChatUI extends JFrame implements IChatView {
         return currentUser != null ? currentUser.getName() : "";
     }
 
-    // --- MANEJO DE BURBUJAS DE CHAT ---
-
     private JPanel getOrCreateChatPanel(String ip) {
         return chatPanels.computeIfAbsent(ip, k -> {
             JPanel p = new JPanel();
             p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-            p.setBackground(new Color(240, 240, 240)); // Fondo gris claro
+            p.setBackground(new Color(240, 240, 240));
             p.setBorder(new EmptyBorder(10, 10, 10, 10));
             return p;
         });
@@ -478,7 +480,7 @@ public class ChatUI extends JFrame implements IChatView {
                 time = msg.getTimestamp() != null ? msg.getTimestamp() : "";
             }
             String idMensaje = msg.getId();
-            addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje, msg.isPinned());
+            addBubble(panel, msg.getContent(), time, msg.isMine(), msg.isConfirmed(), idMensaje, msg.isPinned(), msg.isViewOnce());
         }
 
         panel.add(Box.createVerticalGlue());
@@ -489,6 +491,7 @@ public class ChatUI extends JFrame implements IChatView {
         selectDestinatarioPorIp(contacto.getIp());
         btnEnviarMensaje.setEnabled(true);
         btnZumbido.setEnabled(true);
+        btnMensajeUnico.setEnabled(true);
 
         scrollToBottom(panel);
     }
@@ -496,11 +499,9 @@ public class ChatUI extends JFrame implements IChatView {
     @Override
     public void appendChatToContact(String ip, String texto) {
         JPanel panel = getOrCreateChatPanel(ip);
-
         String cleanText = texto.trim();
         if (cleanText.isEmpty()) return;
 
-        // Solo para mensajes de sistema ahora
         addSystemLabel(panel, cleanText);
 
         if (ip.equals(contactoActivo)) {
@@ -509,12 +510,13 @@ public class ChatUI extends JFrame implements IChatView {
         }
     }
 
+    // ACTUALIZADO: Metodo que implementa la interfaz
     @Override
-    public void appendMensajeToContact(String ip, String content, boolean isMine, String idMensaje) {
+    public void appendMensajeToContact(String ip, String content, boolean isMine, String idMensaje, boolean viewOnce) {
         JPanel panel = getOrCreateChatPanel(ip);
         String time = new SimpleDateFormat("HH:mm").format(new Date());
 
-        addBubble(panel, content, time, isMine, false, idMensaje);
+        addBubble(panel, content, time, isMine, false, idMensaje, false, viewOnce);
 
         if (ip.equals(contactoActivo)) {
             scrollChatActual.setViewportView(panel);
@@ -533,21 +535,33 @@ public class ChatUI extends JFrame implements IChatView {
             msgLabel.revalidate();
             msgLabel.repaint();
         }
-        // Remover checks si existian
+
+        // Si era un boton ViewOnce, lo reemplazamos por el label de eliminado
+        RoundedPanel bubble = bubblePanels.get(idMensaje);
+        if (bubble != null) {
+            Component[] comps = bubble.getComponents();
+            for (Component c : comps) {
+                if (c instanceof JButton) {
+                    bubble.remove(c);
+                    String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
+                            + "<i>\uD83D\uDEAB Mensaje único abierto</i></body></html>";
+                    JLabel lbl = new JLabel(html);
+                    lbl.setBorder(new EmptyBorder(8, 12, 4, 12));
+                    bubble.add(lbl, BorderLayout.CENTER);
+                }
+            }
+            bubble.setBgColor(new Color(245, 245, 245));
+            bubble.setComponentPopupMenu(null);
+            bubble.revalidate();
+            bubble.repaint();
+        }
+
         JLabel checkLabel = checkLabels.remove(idMensaje);
         if (checkLabel != null && checkLabel.getParent() != null) {
             java.awt.Container parent = checkLabel.getParent();
             parent.remove(checkLabel);
             parent.revalidate();
             parent.repaint();
-        }
-        // Cambiar color de burbuja a gris claro y remover menu contextual
-        RoundedPanel bubble = bubblePanels.get(idMensaje);
-        if (bubble != null) {
-            bubble.setBgColor(new Color(245, 245, 245));
-            bubble.setComponentPopupMenu(null);
-            bubble.revalidate();
-            bubble.repaint();
         }
     }
 
@@ -556,23 +570,24 @@ public class ChatUI extends JFrame implements IChatView {
         JLabel checkLabel = checkLabels.get(idMensaje);
         if (checkLabel != null) {
             checkLabel.setText("\u2713\u2713");
-            checkLabel.setForeground(new Color(53, 147, 234)); // Azul tipo WhatsApp
+            checkLabel.setForeground(new Color(53, 147, 234));
             checkLabel.repaint();
         }
     }
-    
+
+    // Metodo helper por retrocompatibilidad
     private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje) {
-        addBubble(panel, text, time, isMine, confirmed, idMensaje, false);
+        addBubble(panel, text, time, isMine, confirmed, idMensaje, false, false);
     }
 
-    private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje, boolean pinned) {
+    // ACTUALIZADO: Constructor principal de la burbuja
+    private void addBubble(JPanel panel, String text, String time, boolean isMine, boolean confirmed, String idMensaje, boolean pinned, boolean viewOnce) {
         boolean isDeleted = (text == null || text.isEmpty());
 
         JPanel rowWrapper = new JPanel(new BorderLayout());
         rowWrapper.setOpaque(false);
         rowWrapper.setBorder(new EmptyBorder(3, 0, 3, 0));
 
-        // Burbuja con bordes redondeados
         Color bgColor;
         if (isDeleted) {
             bgColor = new Color(245, 245, 245);
@@ -582,40 +597,51 @@ public class ChatUI extends JFrame implements IChatView {
         RoundedPanel bubble = new RoundedPanel(bgColor, 14);
         bubble.setLayout(new BorderLayout());
 
-        JLabel messageLabel;
+        JLabel messageLabel = null;
+        JButton btnViewOnce = null;
+
         if (isDeleted) {
             String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
                     + "<i>\uD83D\uDEAB Este mensaje fue eliminado</i></body></html>";
             messageLabel = new JLabel(html);
+            messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
+        } else if (viewOnce) {
+            btnViewOnce = new JButton(isMine ? "\uD83D\uDCA3 Mensaje Único Enviado" : "\uD83D\uDCA3 Abrir Mensaje Oculto");
+            btnViewOnce.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            btnViewOnce.setFocusPainted(false);
+            btnViewOnce.setBackground(new Color(255, 220, 220));
+            btnViewOnce.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            if (!isMine) {
+                btnViewOnce.addActionListener(e -> mostrarPopUpMensajeUnico(text, idMensaje));
+            } else {
+                btnViewOnce.setEnabled(false); // El emisor no lo puede abrir
+            }
         } else {
-            // Escapar HTML
             String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
             String widthStyle = text.length() < 30 ? "" : "width: 250px; ";
             String html = "<html><body style='" + widthStyle + "font-family: Segoe UI, sans-serif; font-size: 13px;'>"
                     + escapedText + "</body></html>";
             messageLabel = new JLabel(html);
+            messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
         }
-        messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
 
-        // Registrar el JLabel para poder actualizarlo al eliminar
-        if (idMensaje != null) {
+        if (idMensaje != null && messageLabel != null) {
             messageLabels.put(idMensaje, messageLabel);
+        }
+        if (idMensaje != null) {
             bubblePanels.put(idMensaje, bubble);
         }
 
-        // Panel inferior: hora + pin + checks
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(new EmptyBorder(0, 0, 6, 8));
 
-        // Indicador de mensaje fijado
         if (pinned && !isDeleted) {
             JLabel pinLabel = new JLabel("\uD83D\uDCCC");
             pinLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
             bottomPanel.add(pinLabel);
-            if (idMensaje != null) {
-                pinLabels.put(idMensaje, pinLabel);
-            }
+            if (idMensaje != null) pinLabels.put(idMensaje, pinLabel);
         }
 
         JLabel timeLabel = new JLabel(time);
@@ -623,59 +649,42 @@ public class ChatUI extends JFrame implements IChatView {
         timeLabel.setForeground(new Color(140, 140, 140));
         bottomPanel.add(timeLabel);
 
-        // Checks solo para mensajes enviados (mios) y no eliminados
         if (isMine && !isDeleted) {
-            JLabel checkLabel = new JLabel();
+            JLabel checkLabel = new JLabel(confirmed ? "\u2713\u2713" : "\u2713");
             checkLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-            if (confirmed) {
-                checkLabel.setText("\u2713\u2713"); // doble check
-                checkLabel.setForeground(new Color(53, 147, 234)); // Azul
-            } else {
-                checkLabel.setText("\u2713"); // check simple
-                checkLabel.setForeground(new Color(140, 140, 140)); // Gris
-            }
+            checkLabel.setForeground(confirmed ? new Color(53, 147, 234) : new Color(140, 140, 140));
             bottomPanel.add(checkLabel);
-
-            // Registrar para actualizar luego cuando llegue 008
-            if (idMensaje != null) {
-                checkLabels.put(idMensaje, checkLabel);
-            }
+            if (idMensaje != null) checkLabels.put(idMensaje, checkLabel);
         }
 
-        bubble.add(messageLabel, BorderLayout.CENTER);
-        bubble.add(bottomPanel, BorderLayout.SOUTH);
+        if (btnViewOnce != null) {
+            bubble.add(btnViewOnce, BorderLayout.CENTER);
+        } else {
+            bubble.add(messageLabel, BorderLayout.CENTER);
+            if (!isDeleted && idMensaje != null) {
+                JPopupMenu popupMenu = new JPopupMenu();
+                JMenuItem fijarItem = new JMenuItem("\uD83D\uDCCC Fijar mensaje");
+                fijarItem.addActionListener(e -> chatController.fijarMensaje(contactoActivo, idMensaje));
+                popupMenu.add(fijarItem);
 
-        // Menu contextual (para todos los mensajes no eliminados)
-        if (!isDeleted && idMensaje != null) {
-            JPopupMenu popupMenu = new JPopupMenu();
-            final String msgId = idMensaje;
-
-            // Opcion: Fijar mensaje
-            JMenuItem fijarItem = new JMenuItem("\uD83D\uDCCC Fijar mensaje");
-            fijarItem.addActionListener(e -> {
-                if (contactoActivo != null) {
-                    chatController.fijarMensaje(contactoActivo, msgId);
+                if (isMine) {
+                    JMenuItem eliminarItem = new JMenuItem("Eliminar mensaje");
+                    eliminarItem.addActionListener(e -> {
+                        int confirm = JOptionPane.showConfirmDialog(this,
+                                "Eliminar este mensaje? Esta accion no se puede deshacer.",
+                                "Eliminar mensaje", JOptionPane.YES_NO_OPTION);
+                        if (confirm == JOptionPane.YES_OPTION && contactoActivo != null) {
+                            chatController.eliminarMensaje(contactoActivo, idMensaje);
+                        }
+                    });
+                    popupMenu.add(eliminarItem);
                 }
-            });
-            popupMenu.add(fijarItem);
-
-            // Opcion: Eliminar mensaje (solo para mensajes propios)
-            if (isMine) {
-                JMenuItem eliminarItem = new JMenuItem("Eliminar mensaje");
-                eliminarItem.addActionListener(e -> {
-                    int confirm = JOptionPane.showConfirmDialog(this,
-                            "Eliminar este mensaje? Esta accion no se puede deshacer.",
-                            "Eliminar mensaje", JOptionPane.YES_NO_OPTION);
-                    if (confirm == JOptionPane.YES_OPTION && contactoActivo != null) {
-                        chatController.eliminarMensaje(contactoActivo, msgId);
-                    }
-                });
-                popupMenu.add(eliminarItem);
+                bubble.setComponentPopupMenu(popupMenu);
+                messageLabel.setComponentPopupMenu(popupMenu);
             }
-
-            bubble.setComponentPopupMenu(popupMenu);
-            messageLabel.setComponentPopupMenu(popupMenu);
         }
+
+        bubble.add(bottomPanel, BorderLayout.SOUTH);
 
         JPanel alignmentWrapper = new JPanel(new FlowLayout(isMine ? FlowLayout.RIGHT : FlowLayout.LEFT, 8, 0));
         alignmentWrapper.setOpaque(false);
@@ -686,16 +695,16 @@ public class ChatUI extends JFrame implements IChatView {
         panel.add(rowWrapper);
         panel.revalidate();
     }
-    
+
     private void addSystemLabel(JPanel panel, String text) {
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER));
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(5, 0, 5, 0));
-        
+
         JLabel lbl = new JLabel(text);
         lbl.setFont(new Font("SansSerif", Font.ITALIC, 11));
         lbl.setForeground(Color.GRAY);
-        
+
         wrapper.add(lbl);
         panel.add(wrapper);
         panel.revalidate();
@@ -729,7 +738,7 @@ public class ChatUI extends JFrame implements IChatView {
                     "Configuracion Inicial",
                     JOptionPane.QUESTION_MESSAGE);
             if (name == null) {
-                if (userComboBoxModel.getSize() == 0) System.exit(0); // Exit if no user and cancelled
+                if (userComboBoxModel.getSize() == 0) System.exit(0);
                 return;
             }
             if (name.length() > 60) {
@@ -748,8 +757,6 @@ public class ChatUI extends JFrame implements IChatView {
     public String getContactoActivo() {
         return contactoActivo;
     }
-
-    // --- Pinned Message Methods ---
 
     @Override
     public void mostrarMensajeFijado(String ip, ChatMessageInfo mensaje) {
@@ -780,18 +787,16 @@ public class ChatUI extends JFrame implements IChatView {
 
     @Override
     public void marcarBurbujaFijada(String ip, String idMensaje) {
-        // Si ya tiene pin label, no hacer nada
         if (pinLabels.containsKey(idMensaje)) return;
 
         RoundedPanel bubble = bubblePanels.get(idMensaje);
         if (bubble != null) {
-            // Buscar el bottomPanel (SOUTH component del bubble)
             Component southComp = ((BorderLayout) bubble.getLayout()).getLayoutComponent(BorderLayout.SOUTH);
             if (southComp instanceof JPanel) {
                 JPanel bottomPanel = (JPanel) southComp;
                 JLabel pinLabel = new JLabel("\uD83D\uDCCC");
                 pinLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
-                bottomPanel.add(pinLabel, 0); // Agregar al inicio
+                bottomPanel.add(pinLabel, 0);
                 pinLabels.put(idMensaje, pinLabel);
                 bottomPanel.revalidate();
                 bottomPanel.repaint();
@@ -841,9 +846,43 @@ public class ChatUI extends JFrame implements IChatView {
         }
     }
 
-    /**
-     * Panel con bordes redondeados para las burbujas de chat.
-     */
+    // NUEVO: Método para el PopUp de Mensaje Único
+    private void mostrarPopUpMensajeUnico(String texto, String idMensaje) {
+        JDialog dialog = new JDialog(this, "Mensaje de Visualización Única", true);
+        dialog.setSize(350, 200);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        JTextArea area = new JTextArea("\n" + texto);
+        area.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        area.setWrapStyleWord(true);
+        area.setLineWrap(true);
+        area.setEditable(false);
+        area.setMargin(new Insets(10, 10, 10, 10));
+
+        JButton btnLeido = new JButton("Leído (Destruir mensaje)");
+        btnLeido.setBackground(new Color(255, 100, 100));
+        btnLeido.setForeground(Color.WHITE);
+        btnLeido.setFocusPainted(false);
+        btnLeido.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        btnLeido.addActionListener(e -> {
+            dialog.dispose();
+            chatController.abrirMensajeUnico(contactoActivo, idMensaje);
+        });
+
+        dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                chatController.abrirMensajeUnico(contactoActivo, idMensaje);
+            }
+        });
+
+        dialog.add(new JScrollPane(area), BorderLayout.CENTER);
+        dialog.add(btnLeido, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+    }
+
     private static class RoundedPanel extends JPanel {
         private Color bgColor;
         private final int radius;
@@ -864,7 +903,6 @@ public class ChatUI extends JFrame implements IChatView {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(bgColor);
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
-            // Borde sutil
             g2.setColor(new Color(210, 210, 210));
             g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
             g2.dispose();
