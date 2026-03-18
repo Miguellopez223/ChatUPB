@@ -11,6 +11,7 @@ import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.model.network.message.Zumbido;
 import edu.upb.chatupb_v2.model.network.message.FijarMensaje;
+import edu.upb.chatupb_v2.model.network.message.CambioTema;
 import edu.upb.chatupb_v2.controller.exception.OperationException;
 
 import java.io.IOException;
@@ -274,6 +275,13 @@ public class Mediador implements ChatEventListener {
     public void onMensajeUnicoRecibido(edu.upb.chatupb_v2.model.network.message.MensajeUnico msg, SocketClient sender) {
         for (ChatEventListener listener : listeners) {
             listener.onMensajeUnicoRecibido(msg, sender);
+        }
+    }
+
+    @Override
+    public void onCambioTemaRecibido(CambioTema cambio, SocketClient sender) {
+        for (ChatEventListener listener : listeners) {
+            listener.onCambioTemaRecibido(cambio, sender);
         }
     }
 }

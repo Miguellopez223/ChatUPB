@@ -153,6 +153,13 @@ public class SocketClient extends Thread {
                         }
                         break;
                     }
+                    case "013": {
+                        edu.upb.chatupb_v2.model.network.message.CambioTema cambio = edu.upb.chatupb_v2.model.network.message.CambioTema.parse(message);
+                        for (ChatEventListener listener : listeners) {
+                            listener.onCambioTemaRecibido(cambio, this);
+                        }
+                        break;
+                    }
                 }
             }
         } catch (IOException e) {

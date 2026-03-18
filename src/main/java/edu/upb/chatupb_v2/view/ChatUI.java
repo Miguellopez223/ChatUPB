@@ -51,6 +51,12 @@ public class ChatUI extends JFrame implements IChatView {
     private final HashMap<String, JLabel> messageLabels = new HashMap<>();
     private final HashMap<String, RoundedPanel> bubblePanels = new HashMap<>();
     private final HashMap<String, JLabel> pinLabels = new HashMap<>();
+    private final HashMap<String, Boolean> bubbleIsMine = new HashMap<>();
+
+    // Temas por contacto (IP -> idTema)
+    private final HashMap<String, String> temasContacto = new HashMap<>();
+    private JComboBox<String> comboTemas;
+    private boolean suppressTemaEvent = false;
 
     // Barra de mensaje fijado en la parte superior del chat
     private JPanel pinnedMessageBar;
@@ -170,7 +176,15 @@ public class ChatUI extends JFrame implements IChatView {
         btnMensajeUnico.setEnabled(false);
         btnMensajeUnico.setBackground(new Color(255, 200, 200));
 
+        comboTemas = new JComboBox<>(new String[]{
+                "1-Defecto", "2-Azul", "3-Rojo", "4-Amarillo", "5-Violeta"
+        });
+        comboTemas.setEnabled(false);
+        comboTemas.setToolTipText("Cambiar tema del chat");
+
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        panelBotones.add(new JLabel("Tema:"));
+        panelBotones.add(comboTemas);
         panelBotones.add(btnZumbido);
         panelBotones.add(btnMensajeUnico);
         panelBotones.add(btnEnviarMensaje);
@@ -236,6 +250,15 @@ public class ChatUI extends JFrame implements IChatView {
             String msg = txtMensaje.getText().trim();
             if (msg.isEmpty() || contactoActivo == null) return;
             chatController.enviarMensajeUnico(contactoActivo, msg);
+        });
+
+        // Evento para cambio de tema
+        comboTemas.addActionListener(e -> {
+            if (suppressTemaEvent || contactoActivo == null) return;
+            String selected = (String) comboTemas.getSelectedItem();
+            if (selected == null) return;
+            String idTema = selected.substring(0, 1);
+            chatController.enviarCambioTema(contactoActivo, idTema);
         });
 
         tablaContactos.getSelectionModel().addListSelectionListener(e -> {
@@ -455,9 +478,10 @@ public class ChatUI extends JFrame implements IChatView {
 
     private JPanel getOrCreateChatPanel(String ip) {
         return chatPanels.computeIfAbsent(ip, k -> {
+            Color[] colores = getColoresTema(temasContacto.getOrDefault(ip, "1"));
             JPanel p = new JPanel();
             p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-            p.setBackground(new Color(240, 240, 240));
+            p.setBackground(colores[0]);
             p.setBorder(new EmptyBorder(10, 10, 10, 10));
             return p;
         });
@@ -492,6 +516,21 @@ public class ChatUI extends JFrame implements IChatView {
         btnEnviarMensaje.setEnabled(true);
         btnZumbido.setEnabled(true);
         btnMensajeUnico.setEnabled(true);
+        comboTemas.setEnabled(true);
+
+        // Seleccionar el tema actual del contacto sin disparar el evento
+        String temaActual = temasContacto.getOrDefault(contacto.getIp(), "1");
+        suppressTemaEvent = true;
+        comboTemas.setSelectedIndex(Integer.parseInt(temaActual) - 1);
+        suppressTemaEvent = false;
+
+        // Aplicar colores del tema a la pinned bar
+        Color[] coloresTema = getColoresTema(temaActual);
+        pinnedMessageBar.setBackground(coloresTema[4]);
+        pinnedMessageBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, coloresTema[5]),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
 
         scrollToBottom(panel);
     }
@@ -588,13 +627,15 @@ public class ChatUI extends JFrame implements IChatView {
         rowWrapper.setOpaque(false);
         rowWrapper.setBorder(new EmptyBorder(3, 0, 3, 0));
 
+        Color[] temaColores = getColoresTema(getTemaActivo());
         Color bgColor;
         if (isDeleted) {
             bgColor = new Color(245, 245, 245);
         } else {
-            bgColor = isMine ? new Color(212, 245, 212) : Color.WHITE;
+            bgColor = isMine ? temaColores[1] : temaColores[2];
         }
         RoundedPanel bubble = new RoundedPanel(bgColor, 14);
+        bubble.setBorderColor(temaColores[3]);
         bubble.setLayout(new BorderLayout());
 
         JLabel messageLabel = null;
@@ -631,6 +672,7 @@ public class ChatUI extends JFrame implements IChatView {
         }
         if (idMensaje != null) {
             bubblePanels.put(idMensaje, bubble);
+            bubbleIsMine.put(idMensaje, isMine);
         }
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
@@ -822,6 +864,8 @@ public class ChatUI extends JFrame implements IChatView {
         messageLabels.clear();
         bubblePanels.clear();
         pinLabels.clear();
+        bubbleIsMine.clear();
+        temasContacto.clear();
         pinnedMessageId = null;
         previousPinnedId = null;
         pinnedMessageBar.setVisible(false);
@@ -844,6 +888,70 @@ public class ChatUI extends JFrame implements IChatView {
                 return;
             }
         }
+    }
+
+    @Override
+    public void aplicarTema(String ip, String idTema) {
+        temasContacto.put(ip, idTema);
+
+        // Actualizar combo si es el contacto activo
+        if (ip.equals(contactoActivo)) {
+            suppressTemaEvent = true;
+            comboTemas.setSelectedIndex(Integer.parseInt(idTema) - 1);
+            suppressTemaEvent = false;
+        }
+
+        Color[] colores = getColoresTema(idTema);
+
+        // Actualizar fondo del panel de chat
+        JPanel panel = chatPanels.get(ip);
+        if (panel != null) {
+            panel.setBackground(colores[0]);
+        }
+
+        // Actualizar colores de todas las burbujas del contacto activo
+        for (java.util.Map.Entry<String, RoundedPanel> entry : bubblePanels.entrySet()) {
+            RoundedPanel bubble = entry.getValue();
+            String id = entry.getKey();
+            Boolean isMine = bubbleIsMine.get(id);
+            if (isMine == null) continue;
+
+            // Solo actualizar burbujas que pertenecen al panel de este contacto
+            if (panel != null && isComponentInPanel(bubble, panel)) {
+                JLabel msgLabel = messageLabels.get(id);
+                boolean isDeleted = (msgLabel != null && msgLabel.getText().contains("eliminado"))
+                        || (msgLabel != null && msgLabel.getText().contains("Mensaje único abierto"));
+                if (!isDeleted) {
+                    bubble.setBgColor(isMine ? colores[1] : colores[2]);
+                }
+                bubble.setBorderColor(colores[3]);
+                bubble.repaint();
+            }
+        }
+
+        // Actualizar pinned bar si es el contacto activo
+        if (ip.equals(contactoActivo)) {
+            pinnedMessageBar.setBackground(colores[4]);
+            pinnedMessageBar.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, colores[5]),
+                    new EmptyBorder(6, 10, 6, 10)
+            ));
+            pinnedMessageBar.repaint();
+        }
+
+        if (panel != null) {
+            panel.revalidate();
+            panel.repaint();
+        }
+    }
+
+    private boolean isComponentInPanel(Component comp, JPanel panel) {
+        Component current = comp;
+        while (current != null) {
+            if (current == panel) return true;
+            current = current.getParent();
+        }
+        return false;
     }
 
     // NUEVO: Método para el PopUp de Mensaje Único
@@ -883,12 +991,52 @@ public class ChatUI extends JFrame implements IChatView {
         dialog.setVisible(true);
     }
 
+    // --- TEMA: Colores por tema ---
+    // Cada tema devuelve: [0] = fondo panel, [1] = burbuja mia, [2] = burbuja otro, [3] = borde burbuja, [4] = fondo pinned bar, [5] = borde pinned bar
+    private static Color[] getColoresTema(String idTema) {
+        if (idTema == null) idTema = "1";
+        switch (idTema) {
+            case "2": // Azul
+                return new Color[]{
+                        new Color(230, 240, 250), new Color(200, 220, 245), Color.WHITE,
+                        new Color(180, 200, 230), new Color(220, 235, 255), new Color(180, 200, 230)
+                };
+            case "3": // Rojo
+                return new Color[]{
+                        new Color(250, 235, 235), new Color(245, 210, 210), Color.WHITE,
+                        new Color(230, 190, 190), new Color(255, 225, 225), new Color(230, 190, 190)
+                };
+            case "4": // Amarillo
+                return new Color[]{
+                        new Color(250, 248, 230), new Color(245, 240, 200), Color.WHITE,
+                        new Color(230, 220, 180), new Color(255, 250, 215), new Color(230, 220, 180)
+                };
+            case "5": // Violeta
+                return new Color[]{
+                        new Color(242, 235, 250), new Color(225, 210, 245), Color.WHITE,
+                        new Color(210, 190, 230), new Color(240, 225, 255), new Color(210, 190, 230)
+                };
+            default: // 1 - Defecto
+                return new Color[]{
+                        new Color(240, 240, 240), new Color(212, 245, 212), Color.WHITE,
+                        new Color(210, 210, 210), new Color(255, 248, 220), new Color(210, 200, 160)
+                };
+        }
+    }
+
+    private String getTemaActivo() {
+        if (contactoActivo == null) return "1";
+        return temasContacto.getOrDefault(contactoActivo, "1");
+    }
+
     private static class RoundedPanel extends JPanel {
         private Color bgColor;
+        private Color borderColor;
         private final int radius;
 
         public RoundedPanel(Color bgColor, int radius) {
             this.bgColor = bgColor;
+            this.borderColor = new Color(210, 210, 210);
             this.radius = radius;
             setOpaque(false);
         }
@@ -897,13 +1045,17 @@ public class ChatUI extends JFrame implements IChatView {
             this.bgColor = bgColor;
         }
 
+        public void setBorderColor(Color borderColor) {
+            this.borderColor = borderColor;
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(bgColor);
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
-            g2.setColor(new Color(210, 210, 210));
+            g2.setColor(borderColor);
             g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
             g2.dispose();
         }

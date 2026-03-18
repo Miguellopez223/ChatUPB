@@ -44,4 +44,7 @@ public interface IChatView {
     void mostrarZumbido(String ip, String nombreContacto);
     String getMiNombre();
     String getContactoActivo();
+
+    // --- Theme ---
+    void aplicarTema(String ip, String idTema);
 }

@@ -295,6 +295,26 @@ public class ChatController implements ChatEventListener {
         SwingUtilities.invokeLater(() -> procesarFijarMensaje(fijar, sender));
     }
 
+    @Override
+    public void onCambioTemaRecibido(CambioTema cambio, SocketClient sender) {
+        SwingUtilities.invokeLater(() -> {
+            view.aplicarTema(sender.getIp(), cambio.getIdTema());
+        });
+    }
+
+    public void enviarCambioTema(String ip, String idTema) {
+        if (currentUser == null) return;
+        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
+            try {
+                CambioTema cambio = new CambioTema(currentUser.getCode(), idTema);
+                Mediador.getInstancia().enviarMensaje(ip, cambio.generarTrama());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        view.aplicarTema(ip, idTema);
+    }
+
     private void procesarInvitacionRecibida(Invitacion inv, SocketClient sender) {
         if (currentUser == null) return;
         boolean aceptada = view.mostrarDialogoInvitacion(inv.getNombre(), sender.getIp());
