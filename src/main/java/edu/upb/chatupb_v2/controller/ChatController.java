@@ -495,7 +495,7 @@ public class ChatController implements ChatEventListener {
             }
         }
         String miNombre = view.getMiNombre();
-        view.mostrarZumbido(ip, miNombre != null ? miNombre : "Tu");
+        view.appendChatToContact(ip, "\uD83D\uDCA5 " + (miNombre != null ? miNombre : "Tu") + " ha enviado un zumbido!");
     }
 
     public void iniciarHello() {
