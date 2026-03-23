@@ -24,6 +24,14 @@ if not exist "%JAR_FILE%" (
     exit /b 1
 )
 
+REM --- Paso 2.5: Crear carpeta limpia solo con el fat JAR ---
+echo Preparando archivos para empaquetado...
+if exist "target\jpackage-input" rmdir /s /q "target\jpackage-input"
+mkdir "target\jpackage-input"
+copy "%JAR_FILE%" "target\jpackage-input\ChatUPB_V2-1.0-SNAPSHOT.jar" >nul
+echo      Listo.
+echo.
+
 REM --- Paso 3: Crear el instalador con jpackage ---
 echo [2/3] Creando instalador .exe con jpackage...
 echo      (Esto puede tardar 1-2 minutos)
@@ -32,43 +40,32 @@ echo.
 REM Limpiar output anterior si existe
 if exist "target\installer" rmdir /s /q "target\installer"
 
-jpackage ^
-    --type exe ^
-    --name "ChatUPB" ^
-    --app-version 2.0.0 ^
-    --vendor "UPB" ^
-    --description "Chat P2P - Universidad Privada Boliviana" ^
-    --input target ^
-    --main-jar ChatUPB_V2-1.0-SNAPSHOT.jar ^
-    --main-class edu.upb.chatupb_v2.Launcher ^
-    --dest target\installer ^
-    --win-dir-chooser ^
-    --win-shortcut ^
-    --win-menu ^
-    --win-menu-group "ChatUPB" ^
-    --icon src\main\resources\images\logo.ico ^
-    --java-options "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" ^
-    --java-options "-Dfile.encoding=UTF-8"
+REM Verificar si existe icono
+set ICON_OPT=
+if exist "src\main\resources\images\logo.ico" set ICON_OPT=--icon src\main\resources\images\logo.ico
+
+jpackage --type exe ^
+      --dest target\installer ^
+      --input target\jpackage-input ^
+      --name "ChatUPB" ^
+      --main-class edu.upb.chatupb_v2.Launcher ^
+      --main-jar ChatUPB_V2-1.0-SNAPSHOT.jar ^
+      --runtime-image "%JAVA_HOME%" ^
+      --win-dir-chooser ^
+      --win-shortcut ^
+      --win-console ^
+      --java-options "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" ^
+      --java-options "-Dfile.encoding=UTF-8"
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ERROR: Fallo jpackage. Posibles causas:
-    echo   - Necesitas instalar WiX Toolset 3.x: https://wixtoolset.org/releases/
-    echo   - O usa --type app-image en vez de --type exe para generar carpeta portable
+    echo ERROR: Fallo jpackage con --type exe.
+    echo   Posible causa: Necesitas WiX Toolset 3.x
+    echo   Descarga: https://github.com/wixtoolset/wix3/releases/tag/wix3141rtm
     echo.
-    echo Intentando crear version portable (sin instalador)...
+    echo Intentando crear version portable sin instalador...
 
-    jpackage ^
-        --type app-image ^
-        --name "ChatUPB" ^
-        --app-version 2.0.0 ^
-        --vendor "UPB" ^
-        --input target ^
-        --main-jar ChatUPB_V2-1.0-SNAPSHOT.jar ^
-        --main-class edu.upb.chatupb_v2.Launcher ^
-        --dest target\installer ^
-        --java-options "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" ^
-        --java-options "-Dfile.encoding=UTF-8"
+    jpackage --type app-image --name "ChatUPB" --app-version 2.0.0 --vendor "UPB" --input target\jpackage-input --main-jar ChatUPB_V2-1.0-SNAPSHOT.jar --main-class edu.upb.chatupb_v2.Launcher --dest target\installer %ICON_OPT% --java-options "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" --java-options "-Dfile.encoding=UTF-8"
 
     if %ERRORLEVEL% neq 0 (
         echo ERROR: Tambien fallo app-image. Revisa que tengas JDK 21+ instalado.
@@ -91,6 +88,9 @@ if %ERRORLEVEL% neq 0 (
     echo   se instala como cualquier programa de Windows.
     echo   NO necesita tener Java instalado.
 )
+
+REM Limpiar carpeta temporal
+rmdir /s /q "target\jpackage-input" 2>nul
 
 echo.
 pause
