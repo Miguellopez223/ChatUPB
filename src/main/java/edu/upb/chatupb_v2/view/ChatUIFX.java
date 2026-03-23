@@ -301,7 +301,7 @@ public class ChatUIFX extends Application implements IChatView {
                 confirm.initOwner(stage);
                 confirm.showAndWait().ifPresent(btn -> {
                     if (btn == ButtonType.YES) {
-                        contactController.eliminar(sel.getId());
+                        chatController.eliminarContacto(sel.getId(), sel.getIp());
                     }
                 });
             }
@@ -956,6 +956,26 @@ public class ChatUIFX extends Application implements IChatView {
         return runOnFxBlocking(() -> {
             User u = userComboBox.getValue();
             return u != null ? u.getName() : "";
+        });
+    }
+
+    @Override
+    public void limpiarChatDeContacto(String ip) {
+        runOnFx(() -> {
+            chatPanels.remove(ip);
+            // Limpiar referencias de burbujas de este contacto
+            // Si el chat eliminado era el activo, volver a la vista por defecto
+            if (ip.equals(contactoActivo)) {
+                contactoActivo = null;
+                scrollChat.setContent(defaultChatView);
+                lblChatTitle.setText("Chat History");
+                btnSend.setDisable(true);
+                comboTemas.setDisable(true);
+                pinnedMessageBar.setVisible(false);
+                pinnedMessageBar.setManaged(false);
+                pinnedMessageId = null;
+            }
+            temasContacto.remove(ip);
         });
     }
 

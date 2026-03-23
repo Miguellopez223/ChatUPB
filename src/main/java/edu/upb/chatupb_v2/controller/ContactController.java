@@ -16,12 +16,17 @@ public class ContactController {
     private final IChatView view;
     private IContactDao contactDao;
     private User currentUser;
+    private MessageController messageController;
 
     public ContactController(IChatView view) {
         this.view = view;
         // Inicialmente sin usuario, se setea despues
         // Aplicando el patron Decorador para Cachear el DAO
         this.contactDao = new CacheContactDao(new ContactDao());
+    }
+
+    public void setMessageController(MessageController messageController) {
+        this.messageController = messageController;
     }
 
     public void setUsuario(User user) {
@@ -138,6 +143,22 @@ public class ContactController {
     public void eliminar(String id) {
         if (currentUser == null) return;
         try {
+            // Buscar el code del contacto antes de eliminarlo para borrar sus mensajes
+            List<Contact> contacts = contactDao.findAll();
+            String contactCode = null;
+            for (Contact c : contacts) {
+                if (c.getId().equals(id)) {
+                    contactCode = c.getCode();
+                    break;
+                }
+            }
+
+            // Eliminar todos los mensajes de la conversacion con este contacto
+            if (contactCode != null && messageController != null) {
+                messageController.eliminarConversacion(contactCode);
+            }
+
+            // Eliminar el contacto de la BD
             contactDao.delete(id);
             onLoad();
         } catch (Exception e) {

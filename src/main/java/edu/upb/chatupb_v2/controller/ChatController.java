@@ -36,6 +36,7 @@ public class ChatController implements ChatEventListener {
         this.userDao = new UserDao();
         this.contactController = new ContactController(view);
         this.messageController = new MessageController();
+        this.contactController.setMessageController(this.messageController);
     }
 
     public void onAppStart() {
@@ -101,6 +102,31 @@ public class ChatController implements ChatEventListener {
 
     public String getNombreConectado(String ip) {
         return nombresConectados.getOrDefault(ip, ip);
+    }
+
+    /**
+     * Elimina un contacto completamente: cierra conexion, borra mensajes y contacto de BD.
+     */
+    public void eliminarContacto(String id, String ip) {
+        if (currentUser == null) return;
+
+        // Cerrar conexion si existe
+        if (Mediador.getInstancia().existe(ip)) {
+            SocketClient client = Mediador.getInstancia().obtener(ip);
+            if (client != null) client.close();
+            Mediador.getInstancia().eliminar(ip);
+        }
+        nombresConectados.remove(ip);
+        codigosConectados.remove(ip);
+        ipsMensajePendiente.remove(ip);
+
+        // Borrar contacto y sus mensajes de la BD
+        contactController.eliminar(id);
+
+        // Actualizar UI
+        view.actualizarEstado(nombresConectados.size());
+        view.refrescarEstadoContactos();
+        view.limpiarChatDeContacto(ip);
     }
 
     public void enviarInvitacion(String ip, String miNombre) {

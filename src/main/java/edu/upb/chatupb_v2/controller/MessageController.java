@@ -142,6 +142,18 @@ public class MessageController {
     }
 
     /**
+     * Elimina toda la conversacion con un contacto (borrado fisico de la BD).
+     */
+    public void eliminarConversacion(String contactCode) {
+        if (currentUser == null) return;
+        try {
+            messageDao.deleteConversation(currentUser.getCode(), contactCode);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Fija un mensaje en la conversacion con un contacto.
      * Desfija automaticamente cualquier mensaje previamente fijado.
      */

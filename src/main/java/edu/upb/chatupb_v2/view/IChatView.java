@@ -48,6 +48,9 @@ public interface IChatView {
     // --- Theme ---
     void aplicarTema(String ip, String idTema);
 
+    // --- Contact Deletion ---
+    void limpiarChatDeContacto(String ip);
+
     // --- Connection State ---
     void notificarDesconexion(String ip);
     void mostrarIndicadorMensaje(String ip);

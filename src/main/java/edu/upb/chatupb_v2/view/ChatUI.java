@@ -382,7 +382,7 @@ public class ChatUI extends JFrame implements IChatView {
                 "Confirmar eliminacion", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        contactController.eliminar(contacto.getId());
+        chatController.eliminarContacto(contacto.getId(), contacto.getIp());
     }
 
     @Override
@@ -813,6 +813,24 @@ public class ChatUI extends JFrame implements IChatView {
     @Override
     public void setScreenTitle(String title) {
         setTitle(title);
+    }
+
+    @Override
+    public void limpiarChatDeContacto(String ip) {
+        chatPanels.remove(ip);
+        if (ip.equals(contactoActivo)) {
+            contactoActivo = null;
+            scrollChatActual.setViewportView(areaChat);
+            areaChat.setText("Selecciona un contacto para chatear.\n");
+            scrollChatActual.setBorder(new TitledBorder("Conversacion"));
+            btnEnviarMensaje.setEnabled(false);
+            btnZumbido.setEnabled(false);
+            btnMensajeUnico.setEnabled(false);
+            comboTemas.setEnabled(false);
+            pinnedMessageBar.setVisible(false);
+            pinnedMessageId = null;
+        }
+        temasContacto.remove(ip);
     }
 
     @Override
