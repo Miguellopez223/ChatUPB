@@ -194,7 +194,7 @@ public class ChatUIFX extends Application implements IChatView {
         // Name
         lblUserName = new Label("Usuario");
         lblUserName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
-        Label subtitle = new Label("\uD83D\uDC65 New User");
+        Label subtitle = new Label("\uD83D\uDC65 Nuevo Usuario");
         subtitle.setStyle("-fx-font-size: 11px; -fx-text-fill: " + TXT_LIGHT + ";");
 
         // User combo
@@ -219,7 +219,7 @@ public class ChatUIFX extends Application implements IChatView {
         card.setPadding(new Insets(14, 0, 10, 0));
         card.setStyle(cardStyle());
 
-        Label title = new Label("Contacts");
+        Label title = new Label("Contactos");
         title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
         title.setPadding(new Insets(0, 0, 0, 16));
 
@@ -331,7 +331,7 @@ public class ChatUIFX extends Application implements IChatView {
         card.setPadding(new Insets(14, 18, 14, 18));
         card.setStyle(cardStyle());
 
-        Label title = new Label("Network Connection");
+        Label title = new Label("Conexi\u00F3n de Red");
         title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
 
         // Controls row
@@ -339,7 +339,7 @@ public class ChatUIFX extends Application implements IChatView {
         row.setAlignment(Pos.CENTER_LEFT);
 
         VBox ipSection = new VBox(2);
-        Label ipLabel = new Label("IP Destination");
+        Label ipLabel = new Label("IP Destino");
         ipLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: " + TXT_LIGHT + ";");
         txtIpDestino = new TextField("192.168.100.8");
         txtIpDestino.setPrefWidth(200);
@@ -347,7 +347,7 @@ public class ChatUIFX extends Application implements IChatView {
                 "-fx-border-color: #CCC; -fx-border-width: 1; -fx-padding: 8 12;");
         ipSection.getChildren().addAll(ipLabel, txtIpDestino);
 
-        btnSendInvite = new Button("Send Invite");
+        btnSendInvite = new Button("Enviar Invitaci\u00F3n");
         btnSendInvite.setStyle("-fx-background-color: " + TEAL + "; -fx-text-fill: white; -fx-font-size: 13px; " +
                 "-fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 10 24; -fx-cursor: hand;");
         btnSendInvite.setOnAction(e -> enviarInvitacion());
@@ -380,7 +380,7 @@ public class ChatUIFX extends Application implements IChatView {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(12, 18, 8, 18));
 
-        lblChatTitle = new Label("Chat History");
+        lblChatTitle = new Label("Historial de Chat");
         lblChatTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
 
         Region sp = new Region();
@@ -450,14 +450,14 @@ public class ChatUIFX extends Application implements IChatView {
         card.setPadding(new Insets(12, 18, 12, 18));
         card.setStyle(cardStyle());
 
-        Label title = new Label("Message Composer");
+        Label title = new Label("Escribir Mensaje");
         title.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
 
         HBox controls = new HBox(14);
         controls.setAlignment(Pos.CENTER);
 
         txtMensaje = new TextField();
-        txtMensaje.setPromptText("Type a message...");
+        txtMensaje.setPromptText("Escribe un mensaje...");
         txtMensaje.setStyle("-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; " +
                 "-fx-border-color: #CCC; -fx-border-width: 1; -fx-padding: 10 14;");
         txtMensaje.setOnAction(e -> enviarAccion());
@@ -466,17 +466,17 @@ public class ChatUIFX extends Application implements IChatView {
         // Nudge
         VBox nudgeBox = new VBox(2);
         nudgeBox.setAlignment(Pos.CENTER);
-        Label nudgeL = new Label("Nudge");
+        Label nudgeL = new Label("Zumbido");
         nudgeL.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
         toggleNudge = new ToggleSwitch(false);
-        Label nudgeSub = new Label("Zumbido");
+        Label nudgeSub = new Label("Enviar alerta");
         nudgeSub.setStyle("-fx-font-size: 9px; -fx-text-fill: " + TXT_LIGHT + ";");
         nudgeBox.getChildren().addAll(nudgeL, toggleNudge, nudgeSub);
 
         // Self-Destruct
         VBox sdBox = new VBox(2);
         sdBox.setAlignment(Pos.CENTER);
-        Label sdL = new Label("Self-Destruct");
+        Label sdL = new Label("Autodestruir");
         sdL.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + TXT_DARK + ";");
         toggleSelfDestruct = new ToggleSwitch(false);
         Label sdSub = new Label("Ver 1 Vez");
@@ -484,7 +484,7 @@ public class ChatUIFX extends Application implements IChatView {
         sdBox.getChildren().addAll(sdL, toggleSelfDestruct, sdSub);
 
         // Send button
-        btnSend = new Button("Send");
+        btnSend = new Button("Enviar");
         btnSend.setDisable(true);
         btnSend.setStyle("-fx-background-color: " + CORAL + "; -fx-text-fill: white; -fx-font-size: 14px; " +
                 "-fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 10 30; -fx-cursor: hand;");
@@ -775,7 +775,7 @@ public class ChatUIFX extends Application implements IChatView {
             pinnedMessageBar.setManaged(false);
 
             scrollChat.setContent(defaultChatView);
-            lblChatTitle.setText("Chat History");
+            lblChatTitle.setText("Historial de Chat");
             contactoActivo = null;
         });
     }
@@ -857,7 +857,7 @@ public class ChatUIFX extends Application implements IChatView {
     public void mostrarError(String mensaje) {
         runOnFx(() -> {
             Alert alert = new Alert(Alert.AlertType.ERROR, mensaje);
-            alert.setTitle("Error");
+            alert.setTitle("Error");  // "Error" es igual en espa\u00F1ol
             alert.initOwner(stage);
             alert.showAndWait();
         });
@@ -890,7 +890,7 @@ public class ChatUIFX extends Application implements IChatView {
                 btnSend.setDisable(true);
             }
         } else {
-            lblEstado.setText("Connected (" + numConexiones + " active connection" + (numConexiones > 1 ? "s" : "") + ")");
+            lblEstado.setText("Conectado (" + numConexiones + " conexi\u00F3n" + (numConexiones > 1 ? "es" : "") + " activa" + (numConexiones > 1 ? "s" : "") + ")");
             lblEstadoIcon.setText("\u2705");
             statusBox.setStyle("-fx-background-color: #E8F5E9; -fx-background-radius: 8;");
             btnSend.setDisable(false);
@@ -968,7 +968,7 @@ public class ChatUIFX extends Application implements IChatView {
             if (ip.equals(contactoActivo)) {
                 contactoActivo = null;
                 scrollChat.setContent(defaultChatView);
-                lblChatTitle.setText("Chat History");
+                lblChatTitle.setText("Historial de Chat");
                 btnSend.setDisable(true);
                 comboTemas.setDisable(true);
                 pinnedMessageBar.setVisible(false);
