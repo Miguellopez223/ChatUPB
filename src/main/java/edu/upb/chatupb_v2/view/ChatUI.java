@@ -200,7 +200,7 @@ public class ChatUI extends JFrame implements IChatView {
         panelContactos.setBorder(new TitledBorder("Contactos (doble click para chatear)"));
         panelContactos.setPreferredSize(new Dimension(250, 0));
 
-        modeloTablaContactos = new DefaultTableModel(new String[]{"Nombre", "IP", "Estado"}, 0) {
+        modeloTablaContactos = new DefaultTableModel(new String[]{"Nombre", "IP", "Estado", "Msg"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -212,8 +212,10 @@ public class ChatUI extends JFrame implements IChatView {
 
         tablaContactos.getColumnModel().getColumn(0).setPreferredWidth(90);
         tablaContactos.getColumnModel().getColumn(1).setPreferredWidth(100);
-        tablaContactos.getColumnModel().getColumn(2).setPreferredWidth(50);
+        tablaContactos.getColumnModel().getColumn(2).setPreferredWidth(40);
         tablaContactos.getColumnModel().getColumn(2).setCellRenderer(new EstadoConexionRenderer());
+        tablaContactos.getColumnModel().getColumn(3).setPreferredWidth(30);
+        tablaContactos.getColumnModel().getColumn(3).setCellRenderer(new MensajePendienteRenderer());
 
         JScrollPane scrollContactos = new JScrollPane(tablaContactos);
         panelContactos.add(scrollContactos, BorderLayout.CENTER);
@@ -388,7 +390,8 @@ public class ChatUI extends JFrame implements IChatView {
         modeloTablaContactos.setRowCount(0);
         for (ContactInfo c : contactosEnMemoria) {
             boolean conectado = chatController.isConectado(c.getIp());
-            modeloTablaContactos.addRow(new Object[]{c.getName(), c.getIp(), conectado});
+            boolean pendiente = chatController.tieneMensajePendiente(c.getIp());
+            modeloTablaContactos.addRow(new Object[]{c.getName(), c.getIp(), conectado, pendiente});
         }
     }
 
@@ -454,8 +457,11 @@ public class ChatUI extends JFrame implements IChatView {
     @Override
     public void refrescarEstadoContactos() {
         for (int i = 0; i < contactosEnMemoria.size(); i++) {
-            boolean conectado = chatController.isConectado(contactosEnMemoria.get(i).getIp());
+            String ip = contactosEnMemoria.get(i).getIp();
+            boolean conectado = chatController.isConectado(ip);
+            boolean pendiente = chatController.tieneMensajePendiente(ip);
             modeloTablaContactos.setValueAt(conectado, i, 2);
+            modeloTablaContactos.setValueAt(pendiente, i, 3);
         }
     }
 
@@ -891,6 +897,21 @@ public class ChatUI extends JFrame implements IChatView {
     }
 
     @Override
+    public void notificarDesconexion(String ip) {
+        refrescarEstadoContactos();
+    }
+
+    @Override
+    public void mostrarIndicadorMensaje(String ip) {
+        refrescarEstadoContactos();
+    }
+
+    @Override
+    public void ocultarIndicadorMensaje(String ip) {
+        refrescarEstadoContactos();
+    }
+
+    @Override
     public void aplicarTema(String ip, String idTema) {
         temasContacto.put(ip, idTema);
 
@@ -1071,6 +1092,25 @@ public class ChatUI extends JFrame implements IChatView {
             boolean conectado = value instanceof Boolean && (Boolean) value;
             label.setIcon(new EsferaIcon(conectado ? new Color(0, 180, 0) : new Color(220, 30, 30), 12));
             label.setToolTipText(conectado ? "Conectado" : "Desconectado");
+            return label;
+        }
+    }
+
+    private static class MensajePendienteRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                                                       boolean isSelected, boolean hasFocus, int row, int column) {
+            JLabel label = (JLabel) super.getTableCellRendererComponent(table, "", isSelected, hasFocus, row, column);
+            label.setHorizontalAlignment(SwingConstants.CENTER);
+
+            boolean pendiente = value instanceof Boolean && (Boolean) value;
+            if (pendiente) {
+                label.setIcon(new EsferaIcon(new Color(0, 180, 0), 10));
+                label.setToolTipText("Mensaje nuevo");
+            } else {
+                label.setIcon(null);
+                label.setToolTipText(null);
+            }
             return label;
         }
     }

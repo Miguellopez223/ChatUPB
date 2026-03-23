@@ -14,7 +14,9 @@ import edu.upb.chatupb_v2.view.IChatView;
 
 import javax.swing.SwingUtilities;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class ChatController implements ChatEventListener {
@@ -27,6 +29,7 @@ public class ChatController implements ChatEventListener {
 
     private final HashMap<String, String> nombresConectados = new HashMap<>();
     private final HashMap<String, String> codigosConectados = new HashMap<>();
+    private final Set<String> ipsMensajePendiente = new HashSet<>();
 
     public ChatController(IChatView view) {
         this.view = view;
@@ -56,6 +59,7 @@ public class ChatController implements ChatEventListener {
         Mediador.getInstancia().cerrarTodasLasConexiones();
         nombresConectados.clear();
         codigosConectados.clear();
+        ipsMensajePendiente.clear();
         view.limpiarConexionesUI();
 
         this.currentUser = user;
@@ -89,6 +93,10 @@ public class ChatController implements ChatEventListener {
 
     public boolean isConectado(String ip) {
         return nombresConectados.containsKey(ip);
+    }
+
+    public boolean tieneMensajePendiente(String ip) {
+        return ipsMensajePendiente.contains(ip);
     }
 
     public String getNombreConectado(String ip) {
@@ -216,6 +224,10 @@ public class ChatController implements ChatEventListener {
         }
         messageController.marcarRecibidosComoVistos(contacto.getCode());
 
+        // Ocultar indicador de mensaje pendiente al abrir chat (se envian 008)
+        ipsMensajePendiente.remove(contacto.getIp());
+        view.ocultarIndicadorMensaje(contacto.getIp());
+
         List<ChatMessageInfo> historial = messageController.cargarHistorial(contacto.getCode());
         view.abrirChatConContacto(contacto, historial);
 
@@ -272,6 +284,10 @@ public class ChatController implements ChatEventListener {
             }
             // Agrega a la UI con viewOnce = true. NO manda el 008 automáticamente.
             view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje(), true);
+
+            // Mostrar indicador de mensaje pendiente
+            ipsMensajePendiente.add(sender.getIp());
+            view.mostrarIndicadorMensaje(sender.getIp());
         });
     }
 
@@ -299,6 +315,21 @@ public class ChatController implements ChatEventListener {
     public void onCambioTemaRecibido(CambioTema cambio, SocketClient sender) {
         SwingUtilities.invokeLater(() -> {
             view.aplicarTema(sender.getIp(), cambio.getIdTema());
+        });
+    }
+
+    @Override
+    public void onDesconexion(String ip) {
+        SwingUtilities.invokeLater(() -> {
+            String nombre = nombresConectados.remove(ip);
+            codigosConectados.remove(ip);
+            ipsMensajePendiente.remove(ip);
+            view.notificarDesconexion(ip);
+            view.actualizarEstado(nombresConectados.size());
+            view.refrescarEstadoContactos();
+            if (nombre != null) {
+                view.appendChat("[Desconexion] " + nombre + " (" + ip + ") se ha desconectado.\n");
+            }
         });
     }
 
@@ -370,11 +401,18 @@ public class ChatController implements ChatEventListener {
 
         view.appendMensajeToContact(sender.getIp(), msg.getContenido(), false, msg.getIdMensaje(), false);
 
+        // Mostrar indicador de mensaje pendiente (punto verde)
+        ipsMensajePendiente.add(sender.getIp());
+        view.mostrarIndicadorMensaje(sender.getIp());
+
         if (sender.getIp().equals(view.getContactoActivo())) {
             try {
                 ConfirmacionMensaje conf = new ConfirmacionMensaje(msg.getIdMensaje());
                 Mediador.getInstancia().enviarMensaje(sender.getIp(), conf.generarTrama());
                 messageController.marcarConfirmado(msg.getIdMensaje());
+                // Ocultar indicador al enviar confirmacion
+                ipsMensajePendiente.remove(sender.getIp());
+                view.ocultarIndicadorMensaje(sender.getIp());
             } catch (Exception e) {
                 e.printStackTrace();
             }

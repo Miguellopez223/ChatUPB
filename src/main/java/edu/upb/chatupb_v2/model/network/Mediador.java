@@ -284,4 +284,12 @@ public class Mediador implements ChatEventListener {
             listener.onCambioTemaRecibido(cambio, sender);
         }
     }
+
+    @Override
+    public void onDesconexion(String ip) {
+        eliminar(ip);
+        for (ChatEventListener listener : listeners) {
+            listener.onDesconexion(ip);
+        }
+    }
 }

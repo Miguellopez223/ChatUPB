@@ -27,4 +27,5 @@ public interface ChatEventListener {
     void onFijarMensajeRecibido(FijarMensaje fijar, SocketClient sender);
     void onMensajeUnicoRecibido(edu.upb.chatupb_v2.model.network.message.MensajeUnico msg, SocketClient sender);
     void onCambioTemaRecibido(CambioTema cambio, SocketClient sender);
+    void onDesconexion(String ip);
 }

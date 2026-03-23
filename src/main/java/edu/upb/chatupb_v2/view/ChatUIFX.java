@@ -243,7 +243,8 @@ public class ChatUIFX extends Application implements IChatView {
                     accent.setMinWidth(4);
                     accent.setMaxWidth(4);
                     accent.setMinHeight(38);
-                    accent.setStyle("-fx-background-color: " + TEAL + "; -fx-background-radius: 2;");
+                    boolean conn = chatController.isConectado(item.getIp());
+                    accent.setStyle("-fx-background-color: " + (conn ? GREEN : "#E53935") + "; -fx-background-radius: 2;");
 
                     VBox textBox = new VBox(2);
                     Label nameL = new Label(item.getName());
@@ -255,11 +256,14 @@ public class ChatUIFX extends Application implements IChatView {
                     Region spacer = new Region();
                     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-                    Circle dot = new Circle(5);
-                    boolean conn = chatController.isConectado(item.getIp());
-                    dot.setFill(conn ? Color.web(GREEN) : Color.web("#CCC"));
+                    cell.getChildren().addAll(accent, textBox, spacer);
 
-                    cell.getChildren().addAll(accent, textBox, spacer, dot);
+                    // Punto verde solo si hay mensaje pendiente (007 recibido, sin 008 enviado)
+                    if (chatController.tieneMensajePendiente(item.getIp())) {
+                        Circle dot = new Circle(5);
+                        dot.setFill(Color.web(GREEN));
+                        cell.getChildren().add(dot);
+                    }
                     setGraphic(cell);
                     setText(null);
                     setStyle("-fx-background-color: transparent; -fx-padding: 0;");
@@ -951,6 +955,21 @@ public class ChatUIFX extends Application implements IChatView {
     @Override
     public String getContactoActivo() {
         return contactoActivo;
+    }
+
+    @Override
+    public void notificarDesconexion(String ip) {
+        runOnFx(() -> listaContactos.refresh());
+    }
+
+    @Override
+    public void mostrarIndicadorMensaje(String ip) {
+        runOnFx(() -> listaContactos.refresh());
+    }
+
+    @Override
+    public void ocultarIndicadorMensaje(String ip) {
+        runOnFx(() -> listaContactos.refresh());
     }
 
     @Override

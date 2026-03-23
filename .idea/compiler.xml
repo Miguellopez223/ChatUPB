@@ -18,7 +18,10 @@
     <bytecodeTargetLevel>
       <module name="balanceador" target="21" />
       <module name="cliente" target="21" />
+      <module name="controller" target="21" />
+      <module name="model" target="21" />
       <module name="tickmaster" target="21" />
+      <module name="view" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

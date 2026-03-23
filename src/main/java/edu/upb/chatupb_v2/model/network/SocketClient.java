@@ -164,6 +164,10 @@ public class SocketClient extends Thread {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            for (ChatEventListener listener : listeners) {
+                listener.onDesconexion(ip);
+            }
         }
     }
 
