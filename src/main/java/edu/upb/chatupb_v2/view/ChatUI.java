@@ -52,6 +52,7 @@ public class ChatUI extends JFrame implements IChatView {
     private final HashMap<String, RoundedPanel> bubblePanels = new HashMap<>();
     private final HashMap<String, JLabel> pinLabels = new HashMap<>();
     private final HashMap<String, Boolean> bubbleIsMine = new HashMap<>();
+    private final java.util.HashSet<String> viewOnceIds = new java.util.HashSet<>();
 
     // Temas por contacto (IP -> idTema)
     private final HashMap<String, String> temasContacto = new HashMap<>();
@@ -571,10 +572,15 @@ public class ChatUI extends JFrame implements IChatView {
 
     @Override
     public void actualizarBurbujaMensajeEliminado(String ip, String idMensaje) {
+        boolean esViewOnce = viewOnceIds.contains(idMensaje);
+        String textoEliminado = esViewOnce
+                ? "\uD83D\uDEAB Mensaje \u00FAnico abierto"
+                : "\uD83D\uDEAB Este mensaje fue eliminado";
+
         JLabel msgLabel = messageLabels.get(idMensaje);
         if (msgLabel != null) {
             String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
-                    + "<i>\uD83D\uDEAB Este mensaje fue eliminado</i></body></html>";
+                    + "<i>" + textoEliminado + "</i></body></html>";
             msgLabel.setText(html);
             msgLabel.setComponentPopupMenu(null);
             msgLabel.revalidate();
@@ -647,7 +653,12 @@ public class ChatUI extends JFrame implements IChatView {
         JLabel messageLabel = null;
         JButton btnViewOnce = null;
 
-        if (isDeleted) {
+        if (isDeleted && viewOnce) {
+            String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
+                    + "<i>\uD83D\uDEAB Mensaje \u00FAnico abierto</i></body></html>";
+            messageLabel = new JLabel(html);
+            messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
+        } else if (isDeleted) {
             String html = "<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #8c8c8c;'>"
                     + "<i>\uD83D\uDEAB Este mensaje fue eliminado</i></body></html>";
             messageLabel = new JLabel(html);
@@ -673,6 +684,9 @@ public class ChatUI extends JFrame implements IChatView {
             messageLabel.setBorder(new EmptyBorder(8, 12, 4, 12));
         }
 
+        if (idMensaje != null && viewOnce) {
+            viewOnceIds.add(idMensaje);
+        }
         if (idMensaje != null && messageLabel != null) {
             messageLabels.put(idMensaje, messageLabel);
         }
@@ -869,6 +883,7 @@ public class ChatUI extends JFrame implements IChatView {
         checkLabels.clear();
         messageLabels.clear();
         bubblePanels.clear();
+        viewOnceIds.clear();
         pinLabels.clear();
         bubbleIsMine.clear();
         temasContacto.clear();

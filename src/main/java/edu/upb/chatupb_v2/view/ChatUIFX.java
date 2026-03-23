@@ -73,6 +73,7 @@ public class ChatUIFX extends Application implements IChatView {
     private final HashMap<String, VBox> bubblePanels = new HashMap<>();
     private final HashMap<String, Label> pinLabels = new HashMap<>();
     private final HashMap<String, Boolean> bubbleIsMine = new HashMap<>();
+    private final HashSet<String> viewOnceIds = new HashSet<>();
     private final HashMap<String, String> temasContacto = new HashMap<>();
     private boolean suppressTemaEvent = false;
 
@@ -678,10 +679,15 @@ public class ChatUIFX extends Application implements IChatView {
     @Override
     public void actualizarBurbujaMensajeEliminado(String ip, String idMensaje) {
         runOnFx(() -> {
+            boolean esViewOnce = viewOnceIds.contains(idMensaje);
+            String textoEliminado = esViewOnce
+                    ? "\uD83D\uDEAB Mensaje \u00FAnico abierto"
+                    : "\uD83D\uDEAB Este mensaje fue eliminado";
+
             // Update message label
             Label msgLabel = messageLabels.get(idMensaje);
             if (msgLabel != null) {
-                msgLabel.setText("\uD83D\uDEAB Este mensaje fue eliminado");
+                msgLabel.setText(textoEliminado);
                 msgLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #8c8c8c; -fx-font-style: italic;");
                 msgLabel.setContextMenu(null);
             }
@@ -762,6 +768,7 @@ public class ChatUIFX extends Application implements IChatView {
             bubblePanels.clear();
             pinLabels.clear();
             bubbleIsMine.clear();
+            viewOnceIds.clear();
             temasContacto.clear();
             pinnedMessageId = null;
             pinnedMessageBar.setVisible(false);
@@ -1062,7 +1069,11 @@ public class ChatUIFX extends Application implements IChatView {
         Label messageLabel = null;
         Button btnViewOnce = null;
 
-        if (isDeleted) {
+        if (isDeleted && viewOnce) {
+            messageLabel = new Label("\uD83D\uDEAB Mensaje \u00FAnico abierto");
+            messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #8c8c8c; -fx-font-style: italic;");
+            messageLabel.setWrapText(true);
+        } else if (isDeleted) {
             messageLabel = new Label("\uD83D\uDEAB Este mensaje fue eliminado");
             messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #8c8c8c; -fx-font-style: italic;");
             messageLabel.setWrapText(true);
@@ -1086,6 +1097,9 @@ public class ChatUIFX extends Application implements IChatView {
         }
 
         // Store references
+        if (idMensaje != null && viewOnce) {
+            viewOnceIds.add(idMensaje);
+        }
         if (idMensaje != null && messageLabel != null) {
             messageLabels.put(idMensaje, messageLabel);
         }

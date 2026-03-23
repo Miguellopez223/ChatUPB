@@ -124,6 +124,13 @@ public class ChatController implements ChatEventListener {
 
     public void enviarMensaje(String ip, String mensaje) {
         if (currentUser == null) return;
+
+        if (!nombresConectados.containsKey(ip) || !Mediador.getInstancia().existe(ip)) {
+            view.appendChatToContact(ip, "[Contacto desconectado]\n");
+            view.limpiarMensaje();
+            return;
+        }
+
         String idMensaje = UUID.randomUUID().toString();
         String timestamp = String.valueOf(System.currentTimeMillis());
 
@@ -133,22 +140,16 @@ public class ChatController implements ChatEventListener {
         }
 
         if (contactCode != null) {
-            // Pasamos 'false' porque es un mensaje normal
             messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp, false);
         }
 
-        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
-            try {
-                EnvioMensaje envio = new EnvioMensaje(currentUser.getCode(), idMensaje, mensaje);
-                Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
-                // Pasamos 'false' en viewOnce
-                view.appendMensajeToContact(ip, mensaje, true, idMensaje, false);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                view.appendChatToContact(ip, "[Error al enviar mensaje]\n");
-            }
-        } else {
-            view.appendChatToContact(ip, "[Pendiente - contacto sin conexion]\n");
+        try {
+            EnvioMensaje envio = new EnvioMensaje(currentUser.getCode(), idMensaje, mensaje);
+            Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+            view.appendMensajeToContact(ip, mensaje, true, idMensaje, false);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            view.appendChatToContact(ip, "[Error al enviar mensaje]\n");
         }
         view.limpiarMensaje();
     }
@@ -156,6 +157,13 @@ public class ChatController implements ChatEventListener {
     // --- NUEVA LÓGICA: Enviar Mensaje Único (Trama 012) ---
     public void enviarMensajeUnico(String ip, String mensaje) {
         if (currentUser == null) return;
+
+        if (!nombresConectados.containsKey(ip) || !Mediador.getInstancia().existe(ip)) {
+            view.appendChatToContact(ip, "[Contacto desconectado]\n");
+            view.limpiarMensaje();
+            return;
+        }
+
         String idMensaje = UUID.randomUUID().toString();
         String timestamp = String.valueOf(System.currentTimeMillis());
 
@@ -165,22 +173,16 @@ public class ChatController implements ChatEventListener {
         }
 
         if (contactCode != null) {
-            // Guardamos indicando viewOnce = true
             messageController.guardarMensajeEnviado(contactCode, mensaje, idMensaje, timestamp, true);
         }
 
-        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
-            try {
-                MensajeUnico envio = new MensajeUnico(currentUser.getCode(), idMensaje, mensaje);
-                Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
-                // Mostramos en la UI con viewOnce = true
-                view.appendMensajeToContact(ip, mensaje, true, idMensaje, true);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                view.appendChatToContact(ip, "[Error al enviar mensaje único]\n");
-            }
-        } else {
-            view.appendChatToContact(ip, "[Pendiente - contacto sin conexión]\n");
+        try {
+            MensajeUnico envio = new MensajeUnico(currentUser.getCode(), idMensaje, mensaje);
+            Mediador.getInstancia().enviarMensaje(ip, envio.generarTrama());
+            view.appendMensajeToContact(ip, mensaje, true, idMensaje, true);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            view.appendChatToContact(ip, "[Error al enviar mensaje único]\n");
         }
         view.limpiarMensaje();
     }
@@ -335,13 +337,15 @@ public class ChatController implements ChatEventListener {
 
     public void enviarCambioTema(String ip, String idTema) {
         if (currentUser == null) return;
-        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
-            try {
-                CambioTema cambio = new CambioTema(currentUser.getCode(), idTema);
-                Mediador.getInstancia().enviarMensaje(ip, cambio.generarTrama());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        if (!nombresConectados.containsKey(ip) || !Mediador.getInstancia().existe(ip)) {
+            view.appendChatToContact(ip, "[Contacto desconectado]\n");
+            return;
+        }
+        try {
+            CambioTema cambio = new CambioTema(currentUser.getCode(), idTema);
+            Mediador.getInstancia().enviarMensaje(ip, cambio.generarTrama());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         view.aplicarTema(ip, idTema);
     }
@@ -524,13 +528,15 @@ public class ChatController implements ChatEventListener {
 
     public void enviarZumbido(String ip) {
         if (currentUser == null) return;
-        if (nombresConectados.containsKey(ip) && Mediador.getInstancia().existe(ip)) {
-            try {
-                Zumbido zumbido = new Zumbido(currentUser.getCode());
-                Mediador.getInstancia().enviarMensaje(ip, zumbido.generarTrama());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        if (!nombresConectados.containsKey(ip) || !Mediador.getInstancia().existe(ip)) {
+            view.appendChatToContact(ip, "[Contacto desconectado]\n");
+            return;
+        }
+        try {
+            Zumbido zumbido = new Zumbido(currentUser.getCode());
+            Mediador.getInstancia().enviarMensaje(ip, zumbido.generarTrama());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         String miNombre = view.getMiNombre();
         view.appendChatToContact(ip, "\uD83D\uDCA5 " + (miNombre != null ? miNombre : "Tu") + " ha enviado un zumbido!");

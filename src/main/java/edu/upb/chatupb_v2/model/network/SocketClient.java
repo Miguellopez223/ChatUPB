@@ -163,7 +163,7 @@ public class SocketClient extends Thread {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("[SocketClient] Conexion cerrada con " + ip + " (" + e.getMessage() + ")");
         } finally {
             for (ChatEventListener listener : listeners) {
                 listener.onDesconexion(ip);
