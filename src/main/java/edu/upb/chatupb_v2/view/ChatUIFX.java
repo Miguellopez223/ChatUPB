@@ -15,6 +15,8 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Modality;
@@ -116,7 +118,13 @@ public class ChatUIFX extends Application implements IChatView {
     // ================================================================
 
     private void buildUI(Stage stage) {
-        stage.setTitle("Chat P2P");
+        stage.setTitle("ChatUPB v2");
+        try {
+            Image appIcon = new Image(getClass().getResourceAsStream("/images/logo.png"));
+            stage.getIcons().add(appIcon);
+        } catch (Exception e) {
+            System.out.println("[ChatUIFX] No se pudo cargar el icono de la app: " + e.getMessage());
+        }
 
         VBox leftPanel = buildLeftPanel();
         leftPanel.setPrefWidth(280);
@@ -150,6 +158,105 @@ public class ChatUIFX extends Application implements IChatView {
         return panel;
     }
 
+    private void mostrarAcercaDe() {
+        Stage aboutStage = new Stage();
+        aboutStage.initModality(Modality.APPLICATION_MODAL);
+        aboutStage.initOwner(stage);
+        aboutStage.setTitle("Acerca De - ChatUPB v2");
+        try {
+            Image icon = new Image(getClass().getResourceAsStream("/images/logo.png"));
+            aboutStage.getIcons().add(icon);
+        } catch (Exception ignored) {}
+
+        VBox content = new VBox(16);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(30, 40, 30, 40));
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #FAFFFE, #E8F6F3);");
+
+        // Logo
+        try {
+            Image logoImg = new Image(getClass().getResourceAsStream("/images/logo.png"));
+            ImageView logoView = new ImageView(logoImg);
+            logoView.setFitWidth(180);
+            logoView.setFitHeight(180);
+            logoView.setPreserveRatio(true);
+            logoView.setSmooth(true);
+            content.getChildren().add(logoView);
+        } catch (Exception e) {
+            Label logoFallback = new Label("ChatUPB");
+            logoFallback.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #2B7A78;");
+            content.getChildren().add(logoFallback);
+        }
+
+        // Titulo
+        Label titulo = new Label("ChatUPB v2");
+        titulo.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #17252A;");
+
+        Label version = new Label("Version 1.0.0");
+        version.setStyle("-fx-font-size: 13px; -fx-text-fill: #3AAFA9; -fx-font-weight: bold;");
+
+        // Separador
+        Region sep = new Region();
+        sep.setPrefHeight(1);
+        sep.setMaxWidth(280);
+        sep.setStyle("-fx-background-color: #3AAFA9;");
+
+        // Descripcion
+        Label desc = new Label("Aplicación de Chat P2P");
+        desc.setStyle("-fx-font-size: 12px; -fx-text-fill: #5C5C5C; -fx-text-alignment: center;");
+        desc.setWrapText(true);
+        desc.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+
+        // Info academica
+        VBox infoBox = new VBox(4);
+        infoBox.setAlignment(Pos.CENTER);
+        infoBox.setStyle("-fx-background-color: rgba(58,175,169,0.08); -fx-background-radius: 10; -fx-padding: 14;");
+
+        Label creador = new Label("\uD83D\uDC68\u200D\uD83D\uDCBB  Creado por: Miguel Angel Lopez Arispe");
+        creador.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #17252A;");
+
+        Label materia = new Label("\uD83D\uDCDA  Materia: Patrones de Diseño");
+        materia.setStyle("-fx-font-size: 12px; -fx-text-fill: #333;");
+
+        Label docente = new Label("\uD83D\uDC68\u200D\uD83C\uDFEB  Docente: Ing. Ricardo Laredo");
+        docente.setStyle("-fx-font-size: 12px; -fx-text-fill: #333;");
+
+        Label universidad = new Label("\uD83C\uDFEB  Universidad Privada Boliviana");
+        universidad.setStyle("-fx-font-size: 12px; -fx-text-fill: #333;");
+
+        Label semestre = new Label("\uD83D\uDCC5  5to Semestre - 2026");
+        semestre.setStyle("-fx-font-size: 12px; -fx-text-fill: #333;");
+
+        Label fecha = new Label("\u2705  Finalizado: 23 de Marzo 2026");
+        fecha.setStyle("-fx-font-size: 12px; -fx-text-fill: #333;");
+
+        infoBox.getChildren().addAll(creador, materia, docente, universidad, semestre, fecha);
+
+        // Tecnologias
+        Label techTitle = new Label("Tecnologías utilizadas");
+        techTitle.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #2B7A78;");
+
+        Label techs = new Label("Java 21  \u2022  JavaFX 21  \u2022  SQLite  \u2022  TCP Sockets  \u2022  Maven");
+        techs.setStyle("-fx-font-size: 11px; -fx-text-fill: #777;");
+
+        // Boton cerrar
+        Button cerrarBtn = new Button("Cerrar");
+        cerrarBtn.setStyle("-fx-background-color: #3AAFA9; -fx-text-fill: white; -fx-font-size: 13px; " +
+                "-fx-font-weight: bold; -fx-padding: 8 30; -fx-background-radius: 20; -fx-cursor: hand;");
+        cerrarBtn.setOnAction(e -> aboutStage.close());
+        cerrarBtn.setOnMouseEntered(e -> cerrarBtn.setStyle("-fx-background-color: #2B7A78; -fx-text-fill: white; -fx-font-size: 13px; " +
+                "-fx-font-weight: bold; -fx-padding: 8 30; -fx-background-radius: 20; -fx-cursor: hand;"));
+        cerrarBtn.setOnMouseExited(e -> cerrarBtn.setStyle("-fx-background-color: #3AAFA9; -fx-text-fill: white; -fx-font-size: 13px; " +
+                "-fx-font-weight: bold; -fx-padding: 8 30; -fx-background-radius: 20; -fx-cursor: hand;"));
+
+        content.getChildren().addAll(titulo, version, sep, desc, infoBox, techTitle, techs, cerrarBtn);
+
+        Scene aboutScene = new Scene(content, 420, 620);
+        aboutStage.setScene(aboutScene);
+        aboutStage.setResizable(false);
+        aboutStage.showAndWait();
+    }
+
     private VBox buildProfileCard() {
         VBox card = new VBox(6);
         card.setAlignment(Pos.CENTER);
@@ -161,7 +268,9 @@ public class ChatUIFX extends Application implements IChatView {
         menuBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; -fx-text-fill: #888; -fx-padding: 0;");
         MenuItem newUserItem = new MenuItem("Nuevo Usuario");
         newUserItem.setOnAction(e -> chatController.crearNuevoUsuario());
-        menuBtn.getItems().add(newUserItem);
+        MenuItem acercaDeItem = new MenuItem("Acerca De");
+        acercaDeItem.setOnAction(e -> mostrarAcercaDe());
+        menuBtn.getItems().addAll(newUserItem, new SeparatorMenuItem(), acercaDeItem);
 
         HBox topRow = new HBox();
         Region sp = new Region();

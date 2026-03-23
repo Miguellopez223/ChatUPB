@@ -46,6 +46,7 @@ jpackage ^
     --win-shortcut ^
     --win-menu ^
     --win-menu-group "ChatUPB" ^
+    --icon src\main\resources\images\logo.ico ^
     --java-options "--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" ^
     --java-options "-Dfile.encoding=UTF-8"
 
