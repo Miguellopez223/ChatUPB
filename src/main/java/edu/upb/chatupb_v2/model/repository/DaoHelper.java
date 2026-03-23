@@ -7,10 +7,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Autor      :Ricardo Laredo
- * Date       :21-11-18
- */
 @Slf4j
 public class DaoHelper<T>  {
 
@@ -41,8 +37,8 @@ public class DaoHelper<T>  {
         try {
             conn = ConnectionDB.getInstance().getConection();
         } catch (Exception ex) {
-            log.error("No se logro crear conexion a la base de datos", ex);
-            throw new ConnectException("No se logro crear conexion a la base de datos");
+            log.error("No se logró crear conexión a la base de datos", ex);
+            throw new ConnectException("No se logro crear conexión a la base de datos");
         }
         st = conn.prepareStatement(query);
 
@@ -52,7 +48,7 @@ public class DaoHelper<T>  {
             }
             boolean status = st.execute();
             if (!status)
-                log.info("Estado de Ejecucion: {}", status);
+                log.info("Estado de Ejecución: {}", status);
             if (status) {
                 List<T> results = new ArrayList<T>();
                 try (ResultSet result = st.getResultSet()) {

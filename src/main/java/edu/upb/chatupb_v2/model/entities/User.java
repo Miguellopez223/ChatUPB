@@ -28,6 +28,6 @@ public class User implements Serializable, Model {
 
     @Override
     public String toString() {
-        return name; // To display correctly in the JComboBox
+        return name;
     }
 }

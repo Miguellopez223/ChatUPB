@@ -8,7 +8,7 @@ import java.sql.Statement;
 
 /**
  * Singleton que gestiona la conexion a la base de datos SQLite.
- * Cada llamada a getConection() retorna una nueva conexion (patron open-per-request).
+ * Cada llamada a getConection() retorna una nueva conexion.
  * Habilita foreign keys de SQLite via PRAGMA.
  *
  */

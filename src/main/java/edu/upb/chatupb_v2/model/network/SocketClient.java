@@ -15,6 +15,9 @@ import edu.upb.chatupb_v2.model.network.message.HelloResponse;
 import edu.upb.chatupb_v2.model.network.message.Invitacion;
 import edu.upb.chatupb_v2.model.network.message.RechazoInvitacion;
 import edu.upb.chatupb_v2.model.network.message.Zumbido;
+import edu.upb.chatupb_v2.model.network.message.MensajeUnico;
+import edu.upb.chatupb_v2.model.network.message.CambioTema;
+import edu.upb.chatupb_v2.model.network.message.FijarMensaje;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -140,21 +143,21 @@ public class SocketClient extends Thread {
                         break;
                     }
                     case "011": {
-                        edu.upb.chatupb_v2.model.network.message.FijarMensaje fijar = edu.upb.chatupb_v2.model.network.message.FijarMensaje.parse(message);
+                        FijarMensaje fijar = FijarMensaje.parse(message);
                         for (ChatEventListener listener : listeners) {
                             listener.onFijarMensajeRecibido(fijar, this);
                         }
                         break;
                     }
                     case "012": {
-                        edu.upb.chatupb_v2.model.network.message.MensajeUnico msgUnico = edu.upb.chatupb_v2.model.network.message.MensajeUnico.parse(message);
+                        MensajeUnico msgUnico = MensajeUnico.parse(message);
                         for (ChatEventListener listener : listeners) {
                             listener.onMensajeUnicoRecibido(msgUnico, this);
                         }
                         break;
                     }
                     case "013": {
-                        edu.upb.chatupb_v2.model.network.message.CambioTema cambio = edu.upb.chatupb_v2.model.network.message.CambioTema.parse(message);
+                        CambioTema cambio = CambioTema.parse(message);
                         for (ChatEventListener listener : listeners) {
                             listener.onCambioTemaRecibido(cambio, this);
                         }
